@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, KanbanSquare, Users, ScrollText, MessageCircle, Calendar, Wifi } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, GitBranch, Users, ScrollText, MessageCircle, Calendar } from "lucide-react";
 import CommandDeck from "@/components/CommandDeck";
 import TaskBoard from "@/components/TaskBoard";
+import PipelineView from "@/components/PipelineView";
 import AgentProfiles from "@/components/AgentProfiles";
 import AILog from "@/components/AILog";
 import Comms from "@/components/Comms";
@@ -11,6 +12,7 @@ import CalendarView from "@/components/CalendarView";
 const tabs = [
   { id: "command", label: "Command", icon: LayoutDashboard },
   { id: "tasks", label: "Tasks", icon: KanbanSquare },
+  { id: "pipeline", label: "8-Phase", icon: GitBranch },
   { id: "agents", label: "Agents", icon: Users },
   { id: "log", label: "Log", icon: ScrollText },
   { id: "comms", label: "Comms", icon: MessageCircle },
@@ -20,6 +22,7 @@ const tabs = [
 const tabComponents: Record<string, React.FC> = {
   command: CommandDeck,
   tasks: TaskBoard,
+  pipeline: PipelineView,
   agents: AgentProfiles,
   log: AILog,
   comms: Comms,
@@ -32,7 +35,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border px-4 py-3">
         <div className="max-w-screen-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -49,7 +51,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Tabs */}
       <nav className="border-b border-border px-4 overflow-x-auto">
         <div className="max-w-screen-2xl mx-auto flex gap-1">
           {tabs.map((tab) => (
@@ -74,7 +75,6 @@ const Index = () => {
         </div>
       </nav>
 
-      {/* Content */}
       <main className="max-w-screen-2xl mx-auto p-4">
         <AnimatePresence mode="wait">
           <motion.div

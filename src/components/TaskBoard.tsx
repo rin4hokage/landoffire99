@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { initialTasks, projectColors, priorityColors, type Task } from "@/data/mockData";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -24,7 +23,7 @@ const columnBorderColors: Record<string, string> = {
 const TaskBoard = () => {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [newTask, setNewTask] = useState({ title: "", project: "Website Builder", description: "", assigned_to: "Rin", priority: "medium" as Task["priority"], due_date: "" });
+  const [newTask, setNewTask] = useState({ title: "", project: "Website Builder", assigned_to: "Rin", priority: "medium" as Task["priority"], due_date: "" });
 
   const handleDragStart = (taskId: string) => setDraggedTask(taskId);
 
@@ -40,7 +39,7 @@ const TaskBoard = () => {
       id: `task-${Date.now()}`,
       title: newTask.title,
       project: newTask.project,
-      description: newTask.description,
+      description: "",
       assigned_to: [newTask.assigned_to],
       priority: newTask.priority,
       column: "todo",
@@ -50,13 +49,59 @@ const TaskBoard = () => {
       updated_at: new Date().toISOString(),
     };
     setTasks((prev) => [...prev, task]);
-    setNewTask({ title: "", project: "Website Builder", description: "", assigned_to: "Rin", priority: "medium", due_date: "" });
+    setNewTask({ title: "", project: "Website Builder", assigned_to: "Rin", priority: "medium", due_date: "" });
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full">
-      {/* Kanban columns */}
-      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 overflow-x-auto">
+    <div className="flex flex-col gap-4 h-full">
+      {/* Compact Create Task Bar */}
+      <div className="glass-card p-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Plus size={14} className="text-primary flex-shrink-0" />
+          <Input
+            placeholder="Task title..."
+            value={newTask.title}
+            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && createTask()}
+            className="bg-muted/30 border-border text-sm h-8 flex-1 min-w-[150px]"
+          />
+          <Select value={newTask.project} onValueChange={(v) => setNewTask({ ...newTask, project: v })}>
+            <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[140px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.keys(projectColors).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
+            <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Rin">🥷 Rin</SelectItem>
+              <SelectItem value="Sub-Agent-1">🔧 Sub-1</SelectItem>
+              <SelectItem value="Sub-Agent-2">📊 Sub-2</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v as Task["priority"] })}>
+            <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[110px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="urgent">🔴 Urgent</SelectItem>
+              <SelectItem value="high">🟠 High</SelectItem>
+              <SelectItem value="medium">🟡 Medium</SelectItem>
+              <SelectItem value="low">⚪ Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            value={newTask.due_date}
+            onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+            className="bg-muted/30 border-border text-sm h-8 w-[140px]"
+          />
+          <Button onClick={createTask} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm h-8 px-4">
+            Create
+          </Button>
+        </div>
+      </div>
+
+      {/* Kanban Columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 overflow-x-auto">
         {columns.map((col) => {
           const colTasks = tasks.filter((t) => t.column === col.id);
           return (
@@ -71,7 +116,7 @@ const TaskBoard = () => {
                 <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{col.label}</h3>
                 <span className="text-xs font-mono text-muted-foreground">{colTasks.length}</span>
               </div>
-              <div className="space-y-2 flex-1 overflow-y-auto">
+              <div className="space-y-2 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
                 <AnimatePresence>
                   {colTasks.map((task) => (
                     <motion.div
@@ -123,40 +168,6 @@ const TaskBoard = () => {
             </div>
           );
         })}
-      </div>
-
-      {/* Create Task Panel */}
-      <div className="glass-card p-4 w-full lg:w-72 space-y-3 flex-shrink-0">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-          <Plus size={14} className="text-primary" /> New Task
-        </h3>
-        <Input placeholder="Task title" value={newTask.title} onChange={(e) => setNewTask({ ...newTask, title: e.target.value })} className="bg-muted/30 border-border text-sm" />
-        <Select value={newTask.project} onValueChange={(v) => setNewTask({ ...newTask, project: v })}>
-          <SelectTrigger className="bg-muted/30 border-border text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {Object.keys(projectColors).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Textarea placeholder="Description" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} className="bg-muted/30 border-border text-sm resize-none" rows={2} />
-        <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
-          <SelectTrigger className="bg-muted/30 border-border text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Rin">🥷 Rin</SelectItem>
-            <SelectItem value="Sub-Agent-1">🔧 Sub-Agent-1</SelectItem>
-            <SelectItem value="Sub-Agent-2">📊 Sub-Agent-2</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v as Task["priority"] })}>
-          <SelectTrigger className="bg-muted/30 border-border text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="urgent">🔴 Urgent</SelectItem>
-            <SelectItem value="high">🟠 High</SelectItem>
-            <SelectItem value="medium">🟡 Medium</SelectItem>
-            <SelectItem value="low">⚪ Low</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input type="date" value={newTask.due_date} onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })} className="bg-muted/30 border-border text-sm" />
-        <Button onClick={createTask} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-sm">Create Task</Button>
       </div>
     </div>
   );
