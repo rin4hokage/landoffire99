@@ -23,7 +23,7 @@ const Auth = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       if (isLogin) {
@@ -33,7 +33,7 @@ const Auth = () => {
       } else {
         if (!username.trim()) {
           toast.error("Username is required.");
-          setLoading(false);
+          setSubmitting(false);
           return;
         }
         const { error } = await supabase.auth.signUp({
@@ -50,7 +50,7 @@ const Auth = () => {
     } catch (error: any) {
       toast.error(error.message || "Authentication failed.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -164,10 +164,10 @@ const Auth = () => {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="w-full font-mono text-xs tracking-wider"
             >
-              {loading ? (
+              {submitting ? (
                 <span className="animate-pulse">Authenticating...</span>
               ) : isLogin ? (
                 <>
