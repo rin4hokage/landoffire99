@@ -10,13 +10,16 @@ import { toast } from "sonner";
 import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 
 const Auth = () => {
-  const { session, loading } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (authLoading) return null;
+  if (session) return <Navigate to="/" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
