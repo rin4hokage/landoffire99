@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus } from "lucide-react";
-import { initialTasks, projectColors, priorityColors, type Task } from "@/data/mockData";
+import { initialTasks, priorityColors, type Task } from "@/data/mockData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,11 +19,12 @@ const columnBorderColors: Record<string, string> = {
   done: "#06b6d4",
 };
 
+const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
 const TaskBoard = () => {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [newTask, setNewTask] = useState({ title: "", project: "Website Builder", assigned_to: "Rin", priority: "medium" as Task["priority"], due_date: "" });
-
+  const [newTask, setNewTask] = useState({ title: "", project: "", assigned_to: "Rin", priority: "medium" as Task["priority"], due_date: "" });
 
   const handleDragStart = (taskId: string) => setDraggedTask(taskId);
 
@@ -39,7 +39,7 @@ const TaskBoard = () => {
     const task: Task = {
       id: `task-${Date.now()}`,
       title: newTask.title,
-      project: newTask.project,
+      project: newTask.project || "Unassigned",
       description: "",
       assigned_to: [newTask.assigned_to],
       priority: newTask.priority,
@@ -50,15 +50,17 @@ const TaskBoard = () => {
       updated_at: new Date().toISOString(),
     };
     setTasks((prev) => [...prev, task]);
-    setNewTask({ title: "", project: "Website Builder", assigned_to: "Rin", priority: "medium", due_date: "" });
+    setNewTask({ title: "", project: "", assigned_to: "Rin", priority: "medium", due_date: "" });
   };
+
+  const sortedTasks = (colTasks: Task[]) =>
+    [...colTasks].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
 
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Compact Create Task Bar */}
       <div className="glass-card p-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <Plus size={14} className="text-primary flex-shrink-0" />
           <Input
             placeholder="Task title..."
             value={newTask.title}
@@ -66,12 +68,12 @@ const TaskBoard = () => {
             onKeyDown={(e) => e.key === "Enter" && createTask()}
             className="bg-muted/30 border-border text-sm h-8 flex-1 min-w-[150px]"
           />
-          <Select value={newTask.project} onValueChange={(v) => setNewTask({ ...newTask, project: v })}>
-            <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[140px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.keys(projectColors).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Input
+            placeholder="Project..."
+            value={newTask.project}
+            onChange={(e) => setNewTask({ ...newTask, project: e.target.value })}
+            className="bg-muted/30 border-border text-sm h-8 w-[140px]"
+          />
           <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
             <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -104,7 +106,7 @@ const TaskBoard = () => {
       {/* Kanban Columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 overflow-x-auto">
         {columns.map((col) => {
-          const colTasks = tasks.filter((t) => t.column === col.id);
+          const colTasks = sortedTasks(tasks.filter((t) => t.column === col.id));
           return (
             <div
               key={col.id}
@@ -135,7 +137,7 @@ const TaskBoard = () => {
                         <span className="text-sm font-semibold leading-tight">{task.title}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: `${projectColors[task.project]}20`, color: projectColors[task.project] }}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-muted-foreground bg-muted/50">
                           {task.project}
                         </span>
                         {task.due_date && (

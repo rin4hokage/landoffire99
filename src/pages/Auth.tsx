@@ -62,10 +62,9 @@ const Auth = () => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-[0.3em] text-foreground mb-2">
-            AKATSUKI
+            LAND OF FIRE
           </h1>
           <p className="text-sm font-mono text-muted-foreground">
             AI Agent Command Center
@@ -76,7 +75,6 @@ const Auth = () => {
           </div>
         </div>
 
-        {/* Auth Card */}
         <div className="glass-card p-6 space-y-6">
           <div className="flex gap-1 p-1 rounded-md bg-muted/20">
             <button
@@ -131,7 +129,7 @@ const Auth = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@akatsuki.dev"
+                placeholder="you@landoffire.dev"
                 required
                 className="bg-background/50 border-border font-mono text-sm"
               />

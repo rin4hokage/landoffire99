@@ -3,6 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { agents } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
+import rinAvatar from "@/assets/rin-avatar.jpg";
+import hinataAvatar from "@/assets/hinata-avatar.jpg";
+import mikasaAvatar from "@/assets/mikasa-avatar.jpg";
+
+const agentAvatars: Record<string, string> = {
+  rin: rinAvatar,
+  "sub-1": hinataAvatar,
+  "sub-2": mikasaAvatar,
+};
 
 const statusClass = (s: string) =>
   s === "active" ? "status-active" : s === "idle" ? "status-idle" : "status-offline";
@@ -22,7 +31,14 @@ const AgentProfiles = () => {
           onClick={() => setExpanded(expanded === agent.id ? null : agent.id)}
         >
           <div className="flex items-center gap-4 mb-4">
-            <span className="text-4xl">{agent.emoji}</span>
+            <img
+              src={agentAvatars[agent.id]}
+              alt={agent.name}
+              className="w-12 h-12 rounded-full object-cover"
+              loading="lazy"
+              width={48}
+              height={48}
+            />
             <div>
               <h3 className="text-lg font-bold">{agent.name}</h3>
               <p className="text-xs text-muted-foreground">{agent.type} · {agent.role}</p>
