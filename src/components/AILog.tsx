@@ -33,8 +33,8 @@ const AILog = () => {
           <SelectContent>
             <SelectItem value="all">All Agents</SelectItem>
             <SelectItem value="Rin">🥷 Rin</SelectItem>
-            <SelectItem value="Sub-Agent-1">🔧 Sub-Agent-1</SelectItem>
-            <SelectItem value="Sub-Agent-2">📊 Sub-Agent-2</SelectItem>
+            <SelectItem value="Hinata">🔧 Hinata</SelectItem>
+            <SelectItem value="Mikasa">📊 Mikasa</SelectItem>
           </SelectContent>
         </Select>
       </div>
