@@ -35,8 +35,8 @@ const initialPipelineProjects: PipelineProject[] = [
 
 const agentEmojiMap: Record<string, string> = {
   Rin: "🥷",
-  "Sub-Agent-1": "🔧",
-  "Sub-Agent-2": "📊",
+  "Hinata": "🔧",
+  "Mikasa": "📊",
 };
 
 const phaseBorderColors = [
