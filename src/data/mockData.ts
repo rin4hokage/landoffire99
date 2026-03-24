@@ -98,7 +98,7 @@ export const agents: Agent[] = [
   },
   {
     id: "sub-2",
-    name: "Sub-Agent-2",
+    name: "Mikasa",
     emoji: "📊",
     type: "Analyst",
     role: "Research Agent",
