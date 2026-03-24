@@ -146,7 +146,7 @@ export const initialThreads: Thread[] = [
   },
   {
     id: "thread-sub1",
-    name: "Sub-Agent-1",
+    name: "Hinata",
     emoji: "🔧",
     type: "direct",
     unreadCount: 0,
