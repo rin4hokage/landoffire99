@@ -26,10 +26,10 @@ interface PipelineProject {
 
 const initialPipelineProjects: PipelineProject[] = [
   { id: "pp-1", name: "Betting Research", phase: 1, status: "active", agents: ["Rin"], timeInPhase: "3 hours", progress: 80 },
-  { id: "pp-2", name: "Website Builder", phase: 2, status: "active", agents: ["Sub-Agent-1", "Sub-Agent-2"], timeInPhase: "1 hour", progress: 35 },
-  { id: "pp-3", name: "Website Builder", phase: 3, status: "active", agents: ["Sub-Agent-1", "Sub-Agent-2"], timeInPhase: "2 hours", progress: 95 },
-  { id: "pp-4", name: "Betting Research", phase: 4, status: "idle", agents: ["Sub-Agent-1"], timeInPhase: "1 hour", progress: 40 },
-  { id: "pp-5", name: "Infrastructure", phase: 3, status: "active", agents: ["Rin", "Sub-Agent-1"], timeInPhase: "45 min", progress: 60 },
+  { id: "pp-2", name: "Website Builder", phase: 2, status: "active", agents: ["Hinata", "Mikasa"], timeInPhase: "1 hour", progress: 35 },
+  { id: "pp-3", name: "Website Builder", phase: 3, status: "active", agents: ["Hinata", "Mikasa"], timeInPhase: "2 hours", progress: 95 },
+  { id: "pp-4", name: "Betting Research", phase: 4, status: "idle", agents: ["Hinata"], timeInPhase: "1 hour", progress: 40 },
+  { id: "pp-5", name: "Infrastructure", phase: 3, status: "active", agents: ["Rin", "Hinata"], timeInPhase: "45 min", progress: 60 },
   { id: "pp-6", name: "System", phase: 7, status: "stuck", agents: ["Rin"], timeInPhase: "30 min", progress: 50 },
 ];
 
