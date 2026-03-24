@@ -152,18 +152,7 @@ export const initialThreads: Thread[] = [
   },
 ];
 
-export const calendarEvents: CalendarEvent[] = [
-  { id: "ev-1", title: "Akatsuki Dashboard Due", type: "deadline", date: "2026-03-25", assignedTo: ["Rin", "Hinata"] },
-  { id: "ev-2", title: "API Integration Complete", type: "deadline", date: "2026-03-26", assignedTo: ["Mikasa"] },
-  { id: "ev-3", title: "Landing Page Design", type: "deadline", date: "2026-03-24", assignedTo: ["Hinata"] },
-  { id: "ev-4", title: "Daily Data Sync", type: "cron", date: "2026-03-22", assignedTo: ["Rin"] },
-  { id: "ev-5", title: "Daily Data Sync", type: "cron", date: "2026-03-23", assignedTo: ["Rin"] },
-  { id: "ev-6", title: "Daily Data Sync", type: "cron", date: "2026-03-24", assignedTo: ["Rin"] },
-  { id: "ev-7", title: "Weekly Report Generation", type: "cron", date: "2026-03-28", assignedTo: ["Mikasa"] },
-  { id: "ev-8", title: "DB Schema Review", type: "deadline", date: "2026-03-26", assignedTo: ["Rin", "Hinata"] },
-  { id: "ev-9", title: "Competitor Report Due", type: "deadline", date: "2026-03-30", assignedTo: ["Mikasa"] },
-  { id: "ev-10", title: "Mikasa Maintenance", type: "unavailable", date: "2026-03-27", assignedTo: ["Mikasa"] },
-];
+export const calendarEvents: CalendarEvent[] = [];
 
 export const activityFeed = [
   { agent: "Rin", emoji: "🥷", action: "Updated task board with 3 new assignments", timestamp: "2 min ago" },
