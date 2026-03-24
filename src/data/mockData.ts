@@ -157,14 +157,8 @@ export const initialThreads: Thread[] = [
     name: "Rin",
     emoji: "🥷",
     type: "direct",
-    unreadCount: 2,
-    messages: [
-      { id: "m1", from: "Rin", fromEmoji: "🥷", to: "You", text: "Dashboard build is progressing well. Command Deck and Task Board are priorities.", timestamp: "10 min ago", read: true },
-      { id: "m2", from: "You", fromEmoji: "👤", to: "Rin", text: "Good. Start the website builder research. Assign to Sub-1.", timestamp: "8 min ago", read: true },
-      { id: "m3", from: "Rin", fromEmoji: "🥷", to: "You", text: "Done. Sub-Agent-1 assigned to website builder research. Task #42 created on Kanban.", timestamp: "6 min ago", read: true },
-      { id: "m4", from: "Rin", fromEmoji: "🥷", to: "You", text: "Tasks updated on dashboard. 3 new items in To Do.", timestamp: "2 min ago", read: false },
-      { id: "m5", from: "Rin", fromEmoji: "🥷", to: "You", text: "Also need your input on the third-party API selection for betting data.", timestamp: "1 min ago", read: false },
-    ],
+    unreadCount: 0,
+    messages: [],
   },
   {
     id: "thread-sub1",
@@ -172,24 +166,15 @@ export const initialThreads: Thread[] = [
     emoji: "🔧",
     type: "direct",
     unreadCount: 0,
-    messages: [
-      { id: "m6", from: "Rin", fromEmoji: "🥷", to: "Sub-Agent-1", text: "You're assigned: Website builder research. See task #42 on Kanban.", timestamp: "30 min ago", read: true },
-      { id: "m7", from: "Sub-Agent-1", fromEmoji: "🔧", to: "Rin", text: "Got it. Starting now. Will update in 30 mins.", timestamp: "28 min ago", read: true },
-      { id: "m8", from: "Sub-Agent-1", fromEmoji: "🔧", to: "You", text: "UI components for the landing page are 60% done. Should I prioritize the hero section or the features grid?", timestamp: "15 min ago", read: true },
-      { id: "m9", from: "You", fromEmoji: "👤", to: "Sub-Agent-1", text: "Hero section first. Make it impactful.", timestamp: "12 min ago", read: true },
-    ],
+    messages: [],
   },
   {
     id: "thread-sub2",
     name: "Sub-Agent-2",
     emoji: "📊",
     type: "direct",
-    unreadCount: 1,
-    messages: [
-      { id: "m10", from: "Sub-Agent-2", fromEmoji: "📊", to: "You", text: "Finished collecting data from 47 betting sources. Ready to compile the report.", timestamp: "20 min ago", read: true },
-      { id: "m11", from: "You", fromEmoji: "👤", to: "Sub-Agent-2", text: "Great work. Compile and share key findings first.", timestamp: "18 min ago", read: true },
-      { id: "m12", from: "Sub-Agent-2", fromEmoji: "📊", to: "You", text: "Key finding: Only 5 out of 47 sources offer reliable real-time API access. Detailed report incoming.", timestamp: "5 min ago", read: false },
-    ],
+    unreadCount: 0,
+    messages: [],
   },
   {
     id: "thread-group",
@@ -197,11 +182,7 @@ export const initialThreads: Thread[] = [
     emoji: "⚡",
     type: "group",
     unreadCount: 0,
-    messages: [
-      { id: "m13", from: "Rin", fromEmoji: "🥷", to: "Group", text: "Morning sync: All systems operational. 3 agents online.", timestamp: "4 hr ago", read: true },
-      { id: "m14", from: "Sub-Agent-1", fromEmoji: "🔧", to: "Group", text: "Confirmed online. Working on website components.", timestamp: "4 hr ago", read: true },
-      { id: "m15", from: "Sub-Agent-2", fromEmoji: "📊", to: "Group", text: "Online. Starting competitor data collection.", timestamp: "4 hr ago", read: true },
-    ],
+    messages: [],
   },
 ];
 
