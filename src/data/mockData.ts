@@ -185,8 +185,8 @@ export const calendarEvents: CalendarEvent[] = [
 
 export const activityFeed = [
   { agent: "Rin", emoji: "🥷", action: "Updated task board with 3 new assignments", timestamp: "2 min ago" },
-  { agent: "Sub-Agent-1", emoji: "🔧", action: "Completed: Navigation component for website", timestamp: "5 min ago" },
-  { agent: "Sub-Agent-2", emoji: "📊", action: "Finished: Data collection from 47 sources", timestamp: "18 min ago" },
+  { agent: "Hinata", emoji: "🔧", action: "Completed: Navigation component for website", timestamp: "5 min ago" },
+  { agent: "Mikasa", emoji: "📊", action: "Finished: Data collection from 47 sources", timestamp: "18 min ago" },
   { agent: "Rin", emoji: "🥷", action: "Started: Betting system architecture analysis", timestamp: "25 min ago" },
   { agent: "Sub-Agent-1", emoji: "🔧", action: "Started: CI/CD pipeline configuration", timestamp: "30 min ago" },
   { agent: "Rin", emoji: "🥷", action: "Moved 'Set up project repository' to Done", timestamp: "1 hr ago" },
