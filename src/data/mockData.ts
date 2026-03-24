@@ -129,9 +129,9 @@ export const initialLogEntries: LogEntry[] = [
   { id: "log-06", agent: "Hinata", agentEmoji: "🔧", category: "task_update", message: "CI/CD pipeline configuration started. Using GitHub Actions with Docker.", timestamp: "30 min ago", read: true },
   { id: "log-07", agent: "Mikasa", agentEmoji: "📊", category: "general", message: "Research phase for website builders complete. Recommending Next.js + Supabase stack.", timestamp: "45 min ago", read: true },
   { id: "log-08", agent: "Rin", agentEmoji: "🥷", category: "task_update", message: "Moved 'Set up project repository' to Done. All repos initialized with proper configs.", timestamp: "1 hr ago", read: true },
-  { id: "log-09", agent: "Sub-Agent-1", agentEmoji: "🔧", category: "error", message: "Build failed on landing page component — missing dependency. Resolved by adding framer-motion.", timestamp: "1.5 hr ago", read: true },
-  { id: "log-10", agent: "Rin", agentEmoji: "🥷", category: "observation", message: "Detected potential bottleneck in task pipeline. Sub-Agent-2 idle for 15 min. Reassigning.", timestamp: "2 hr ago", read: true },
-  { id: "log-11", agent: "Sub-Agent-2", agentEmoji: "📊", category: "task_update", message: "Competitor analysis: 12 platforms reviewed, 5 with relevant API access. Report draft ready.", timestamp: "3 hr ago", read: true },
+  { id: "log-09", agent: "Hinata", agentEmoji: "🔧", category: "error", message: "Build failed on landing page component — missing dependency. Resolved by adding framer-motion.", timestamp: "1.5 hr ago", read: true },
+  { id: "log-10", agent: "Rin", agentEmoji: "🥷", category: "observation", message: "Detected potential bottleneck in task pipeline. Mikasa idle for 15 min. Reassigning.", timestamp: "2 hr ago", read: true },
+  { id: "log-11", agent: "Mikasa", agentEmoji: "📊", category: "task_update", message: "Competitor analysis: 12 platforms reviewed, 5 with relevant API access. Report draft ready.", timestamp: "3 hr ago", read: true },
   { id: "log-12", agent: "Rin", agentEmoji: "🥷", category: "general", message: "Morning sync complete. 3 agents online, 5 tasks in progress, 0 blockers.", timestamp: "4 hr ago", read: true },
 ];
 
