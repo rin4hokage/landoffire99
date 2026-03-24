@@ -190,8 +190,8 @@ export const activityFeed = [
   { agent: "Rin", emoji: "🥷", action: "Started: Betting system architecture analysis", timestamp: "25 min ago" },
   { agent: "Hinata", emoji: "🔧", action: "Started: CI/CD pipeline configuration", timestamp: "30 min ago" },
   { agent: "Rin", emoji: "🥷", action: "Moved 'Set up project repository' to Done", timestamp: "1 hr ago" },
-  { agent: "Sub-Agent-1", emoji: "🔧", action: "Resolved: Build error on landing page", timestamp: "1.5 hr ago" },
-  { agent: "Sub-Agent-2", emoji: "📊", action: "Completed: Competitor analysis (12 platforms)", timestamp: "3 hr ago" },
+  { agent: "Hinata", emoji: "🔧", action: "Resolved: Build error on landing page", timestamp: "1.5 hr ago" },
+  { agent: "Mikasa", emoji: "📊", action: "Completed: Competitor analysis (12 platforms)", timestamp: "3 hr ago" },
 ];
 
 export const projectColors: Record<string, string> = {
