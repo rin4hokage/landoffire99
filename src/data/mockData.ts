@@ -76,9 +76,9 @@ export const agents: Agent[] = [
     emoji: "🥷",
     type: "Main Agent",
     role: "Lead Orchestrator",
-    status: "active",
-    currentTask: "Coordinating Akatsuki dashboard build",
-    tasksCompletedThisWeek: 12,
+    status: "idle",
+    currentTask: null,
+    tasksCompletedThisWeek: 0,
     lastSeen: "Just now",
     skills: ["Orchestration", "Planning", "Delegation", "Analysis", "Communication"],
     accuracy: 97,
@@ -89,10 +89,10 @@ export const agents: Agent[] = [
     emoji: "🔧",
     type: "Builder",
     role: "Code Agent",
-    status: "active",
-    currentTask: "Building website UI components",
-    tasksCompletedThisWeek: 8,
-    lastSeen: "2 min ago",
+    status: "idle",
+    currentTask: null,
+    tasksCompletedThisWeek: 0,
+    lastSeen: "Just now",
     skills: ["React", "TypeScript", "UI/UX", "API Integration", "Testing"],
     accuracy: 94,
   },
@@ -104,19 +104,14 @@ export const agents: Agent[] = [
     role: "Research Agent",
     status: "idle",
     currentTask: null,
-    tasksCompletedThisWeek: 3,
-    lastSeen: "15 min ago",
+    tasksCompletedThisWeek: 0,
+    lastSeen: "Just now",
     skills: ["Data Analysis", "Web Scraping", "Research", "Reporting"],
     accuracy: 91,
   },
 ];
 
-export const projects = [
-  { name: "Website Builder", color: "#10b981", tasks: 6, progress: 45, agents: ["Rin", "Hinata"], status: "active" as const },
-  { name: "Betting Research", color: "#06b6d4", tasks: 4, progress: 20, agents: ["Rin", "Mikasa"], status: "active" as const },
-  { name: "Infrastructure", color: "#f59e0b", tasks: 3, progress: 70, agents: ["Rin", "Hinata"], status: "active" as const },
-  { name: "System", color: "#6b7280", tasks: 2, progress: 90, agents: ["Rin"], status: "maintenance" as const },
-];
+export const projects: { name: string; color: string; tasks: number; progress: number; agents: string[]; status: "active" | "maintenance" }[] = [];
 
 export const initialTasks: Task[] = [];
 
