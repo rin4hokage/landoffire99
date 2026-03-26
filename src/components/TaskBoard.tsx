@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { initialTasks, priorityColors, type Task } from "@/data/mockData";
+import { useTasks } from "@/hooks/useSupabaseData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const columns = [
-  { id: "todo" as const, label: "To Do" },
-  { id: "doing" as const, label: "Doing" },
-  { id: "needs_input" as const, label: "Needs Input" },
-  { id: "done" as const, label: "Done" },
+  { id: "todo", label: "To Do" },
+  { id: "doing", label: "Doing" },
+  { id: "needs_input", label: "Needs Input" },
+  { id: "done", label: "Done" },
 ];
 
 const columnBorderColors: Record<string, string> = {
@@ -19,46 +19,50 @@ const columnBorderColors: Record<string, string> = {
   done: "#06b6d4",
 };
 
+const priorityColors: Record<string, string> = {
+  urgent: "#ef4444",
+  high: "#f59e0b",
+  medium: "#eab308",
+  low: "#6b7280",
+};
+
 const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
+const statusCycle: Record<string, string> = {
+  todo: "doing",
+  doing: "needs_input",
+  needs_input: "done",
+  done: "todo",
+};
+
 const TaskBoard = () => {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [draggedTask, setDraggedTask] = useState<string | null>(null);
-  const [newTask, setNewTask] = useState({ title: "", project: "", assigned_to: "Rin", priority: "medium" as Task["priority"], due_date: "" });
+  const { tasks, addTask, updateTask } = useTasks(5000);
+  const [newTask, setNewTask] = useState({ title: "", project: "", assignee: "Rin", priority: "medium", due_date: "" });
 
-  const handleDragStart = (taskId: string) => setDraggedTask(taskId);
-
-  const handleDrop = (column: Task["column"]) => {
-    if (!draggedTask) return;
-    setTasks((prev) => prev.map((t) => (t.id === draggedTask ? { ...t, column } : t)));
-    setDraggedTask(null);
-  };
-
-  const createTask = () => {
+  const createTask = async () => {
     if (!newTask.title.trim()) return;
-    const task: Task = {
-      id: `task-${Date.now()}`,
+    await addTask({
       title: newTask.title,
-      project: newTask.project || "Unassigned",
-      description: "",
-      assigned_to: [newTask.assigned_to],
+      project: newTask.project || "",
+      assignee: newTask.assignee,
       priority: newTask.priority,
-      column: "todo",
+      status: "todo",
       due_date: newTask.due_date || null,
-      subtasks: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setTasks((prev) => [...prev, task]);
-    setNewTask({ title: "", project: "", assigned_to: "Rin", priority: "medium", due_date: "" });
+      description: "",
+    });
+    setNewTask({ title: "", project: "", assignee: "Rin", priority: "medium", due_date: "" });
   };
 
-  const sortedTasks = (colTasks: Task[]) =>
-    [...colTasks].sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  const cycleStatus = async (taskId: string, currentStatus: string) => {
+    const next = statusCycle[currentStatus] || "todo";
+    await updateTask(taskId, { status: next });
+  };
+
+  const sortedTasks = (colTasks: typeof tasks) =>
+    [...colTasks].sort((a, b) => (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3));
 
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Compact Create Task Bar */}
       <div className="glass-card p-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Input
@@ -74,7 +78,7 @@ const TaskBoard = () => {
             onChange={(e) => setNewTask({ ...newTask, project: e.target.value })}
             className="bg-muted/30 border-border text-sm h-8 w-[140px]"
           />
-          <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
+          <Select value={newTask.assignee} onValueChange={(v) => setNewTask({ ...newTask, assignee: v })}>
             <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[130px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Rin">🥷 Rin</SelectItem>
@@ -82,7 +86,7 @@ const TaskBoard = () => {
               <SelectItem value="Mikasa">📊 Mikasa</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v as Task["priority"] })}>
+          <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
             <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[110px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="urgent">🔴 Urgent</SelectItem>
@@ -103,17 +107,14 @@ const TaskBoard = () => {
         </div>
       </div>
 
-      {/* Kanban Columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 overflow-x-auto">
         {columns.map((col) => {
-          const colTasks = sortedTasks(tasks.filter((t) => t.column === col.id));
+          const colTasks = sortedTasks(tasks.filter((t) => t.status === col.id));
           return (
             <div
               key={col.id}
               className="glass-card p-3 min-h-[300px] flex flex-col"
               style={{ borderTop: `2px solid ${columnBorderColors[col.id]}` }}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => handleDrop(col.id)}
             >
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{col.label}</h3>
@@ -128,18 +129,19 @@ const TaskBoard = () => {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      draggable
-                      onDragStart={() => handleDragStart(task.id)}
-                      className="glass-card-hover p-3 cursor-grab active:cursor-grabbing"
+                      onClick={() => cycleStatus(task.id, task.status)}
+                      className="glass-card-hover p-3 cursor-pointer"
                     >
                       <div className="flex items-start gap-2 mb-1.5">
-                        <span className="priority-dot mt-1" style={{ backgroundColor: priorityColors[task.priority] }} />
+                        <span className="priority-dot mt-1" style={{ backgroundColor: priorityColors[task.priority] || "#6b7280" }} />
                         <span className="text-sm font-semibold leading-tight">{task.title}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-muted-foreground bg-muted/50">
-                          {task.project}
-                        </span>
+                        {task.project && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-muted-foreground bg-muted/50">
+                            {task.project}
+                          </span>
+                        )}
                         {task.due_date && (
                           <span className="text-[10px] text-muted-foreground font-mono">
                             {new Date(task.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -147,23 +149,8 @@ const TaskBoard = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-2">
-                        {task.assigned_to.map((a) => (
-                          <span key={a} className="text-[10px] text-muted-foreground">{a}</span>
-                        ))}
+                        <span className="text-[10px] text-muted-foreground">{task.assignee}</span>
                       </div>
-                      {task.subtasks.length > 0 && (
-                        <div className="mt-2">
-                          <div className="h-1 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all"
-                              style={{ width: `${(task.subtasks.filter((s) => s.completed).length / task.subtasks.length) * 100}%` }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {task.subtasks.filter((s) => s.completed).length}/{task.subtasks.length}
-                          </span>
-                        </div>
-                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>

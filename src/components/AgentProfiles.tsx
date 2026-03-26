@@ -1,23 +1,32 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { agents } from "@/data/mockData";
 import { Badge } from "@/components/ui/badge";
+import { useAgents } from "@/hooks/useSupabaseData";
 import rinAvatar from "@/assets/rin-avatar.jpg";
 import hinataAvatar from "@/assets/hinata-avatar.jpg";
 import mikasaAvatar from "@/assets/mikasa-avatar.jpg";
 
-const agentAvatars: Record<string, string> = {
-  rin: rinAvatar,
-  "sub-1": hinataAvatar,
-  "sub-2": mikasaAvatar,
+const agentAvatarMap: Record<string, string> = {
+  Rin: rinAvatar,
+  Hinata: hinataAvatar,
+  Mikasa: mikasaAvatar,
 };
 
 const statusClass = (s: string) =>
-  s === "active" ? "status-active" : s === "idle" ? "status-idle" : "status-offline";
+  s === "busy" || s === "working" ? "status-active" : "status-idle";
 
 const AgentProfiles = () => {
+  const { agents } = useAgents();
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  if (agents.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground text-xs font-mono">
+        No agents configured. Agents will appear here once added to the database.
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -32,7 +41,7 @@ const AgentProfiles = () => {
         >
           <div className="flex items-center gap-4 mb-4">
             <img
-              src={agentAvatars[agent.id]}
+              src={agentAvatarMap[agent.name] || rinAvatar}
               alt={agent.name}
               className="w-12 h-12 rounded-full object-cover"
               loading="lazy"
@@ -41,40 +50,18 @@ const AgentProfiles = () => {
             />
             <div>
               <h3 className="text-lg font-bold">{agent.name}</h3>
-              <p className="text-xs text-muted-foreground">{agent.type} · {agent.role}</p>
+              <p className="text-xs text-muted-foreground capitalize">{agent.status}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 mb-3">
-            <span className={`status-dot ${statusClass(agent.status)} ${agent.status === "active" ? "animate-pulse-status" : ""}`} />
+            <span className={`status-dot ${statusClass(agent.status)} ${agent.status !== "idle" ? "animate-pulse-status" : ""}`} />
             <span className="text-xs font-mono capitalize text-muted-foreground">{agent.status}</span>
-            <span className="text-xs text-muted-foreground ml-auto font-mono">{agent.lastSeen}</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="glass-card p-2 text-center">
-              <span className="text-lg font-bold text-primary">{agent.tasksCompletedThisWeek}</span>
-              <p className="text-[10px] text-muted-foreground font-mono">Tasks / Week</p>
-            </div>
-            <div className="glass-card p-2 text-center">
-              <span className="text-lg font-bold text-primary">{agent.accuracy}%</span>
-              <p className="text-[10px] text-muted-foreground font-mono">Accuracy</p>
-            </div>
-          </div>
-
-          {agent.currentTask && (
-            <div className="mb-3">
-              <span className="text-[10px] text-muted-foreground font-mono uppercase">Current Task</span>
-              <p className="text-xs text-foreground">{agent.currentTask}</p>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-1 mb-3">
-            {agent.skills.map((skill) => (
-              <Badge key={skill} variant="secondary" className="text-[10px] bg-muted/50 text-muted-foreground border-none">
-                {skill}
-              </Badge>
-            ))}
+            {agent.last_activity && (
+              <span className="text-xs text-muted-foreground ml-auto font-mono">
+                {new Date(agent.last_activity).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
           </div>
 
           <button className="flex items-center gap-1 text-xs text-primary font-mono">
@@ -92,16 +79,12 @@ const AgentProfiles = () => {
               >
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-mono">Total Tasks Completed</span>
-                    <span className="text-foreground font-mono">{agent.tasksCompletedThisWeek * 4}</span>
+                    <span className="text-muted-foreground font-mono">Current Task</span>
+                    <span className="text-foreground font-mono">{agent.current_task_id ? "Assigned" : "None"}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-mono">Avg Response Time</span>
-                    <span className="text-foreground font-mono">{agent.id === "rin" ? "< 1s" : "2-5s"}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground font-mono">Uptime (7d)</span>
-                    <span className="text-foreground font-mono">{agent.status === "active" ? "99.8%" : "94.2%"}</span>
+                    <span className="text-muted-foreground font-mono">Status</span>
+                    <span className="text-foreground font-mono capitalize">{agent.status}</span>
                   </div>
                 </div>
               </motion.div>
