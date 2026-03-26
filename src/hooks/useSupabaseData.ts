@@ -27,6 +27,7 @@ export interface DbProject {
   description: string | null;
   color: string;
   status: string;
+  due_date: string | null;
   created_at: string;
 }
 

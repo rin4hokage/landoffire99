@@ -26,7 +26,7 @@ const CommandDeck = () => {
   const { projects, addProject, updateProject } = useProjects();
   const { agents } = useAgents();
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newProject, setNewProject] = useState({ name: "", description: "", color: "#10b981" });
+  const [newProject, setNewProject] = useState({ name: "", description: "", color: "#10b981", due_date: "" });
 
   const kpis = [
     { label: "Tasks in Progress", value: stats.tasksInProgress, icon: Zap },
@@ -43,8 +43,9 @@ const CommandDeck = () => {
       description: newProject.description.trim(),
       color: newProject.color,
       status: "active",
+      due_date: newProject.due_date || null,
     });
-    setNewProject({ name: "", description: "", color: "#10b981" });
+    setNewProject({ name: "", description: "", color: "#10b981", due_date: "" });
     setShowAddForm(false);
   };
 
@@ -79,6 +80,7 @@ const CommandDeck = () => {
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="glass-card p-3 space-y-3">
               <Input placeholder="Project name..." value={newProject.name} onChange={(e) => setNewProject({ ...newProject, name: e.target.value })} className="bg-muted/30 border-border text-sm h-8" />
               <Textarea placeholder="Project description..." value={newProject.description} onChange={(e) => setNewProject({ ...newProject, description: e.target.value })} className="bg-muted/30 border-border text-sm min-h-[60px] resize-none" />
+              <Input type="date" value={newProject.due_date} onChange={(e) => setNewProject({ ...newProject, due_date: e.target.value })} className="bg-muted/30 border-border text-sm h-8" />
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-mono">Color:</span>
                 {projectColorOptions.map((c) => (
@@ -108,6 +110,7 @@ const CommandDeck = () => {
                   </Button>
                 </div>
                 {p.description && <p className="text-xs text-muted-foreground mb-2 ml-4">{p.description}</p>}
+                {p.due_date && <p className="text-[10px] text-muted-foreground ml-4 font-mono">Due {new Date(p.due_date).toLocaleDateString()}</p>}
               </div>
             ))}
           </div>

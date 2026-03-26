@@ -39,7 +39,7 @@ const TaskBoard = () => {
   const { tasks, addTask, updateTask } = useTasks(5000);
   const { projects } = useProjects();
   const { agents, updateAgent } = useAgents();
-  const [newTask, setNewTask] = useState({ title: "", description: "", assigned_to: "unassigned", project_id: "none" });
+  const [newTask, setNewTask] = useState({ title: "", description: "", assigned_to: "unassigned", project_id: "none", due_date: "" });
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Build project name lookup
@@ -54,6 +54,7 @@ const TaskBoard = () => {
       description: newTask.description || null,
       assigned_to: newTask.assigned_to !== "unassigned" ? newTask.assigned_to : null,
       project_id: newTask.project_id && newTask.project_id !== "none" ? newTask.project_id : null,
+      due_date: newTask.due_date || null,
       status: "todo",
       pipeline_phase: newTask.assigned_to !== "unassigned" ? 2 : 1,
     });
@@ -73,7 +74,7 @@ const TaskBoard = () => {
     }
 
     toast.success("Task saved.");
-    setNewTask({ title: "", description: "", assigned_to: "unassigned", project_id: "none" });
+    setNewTask({ title: "", description: "", assigned_to: "unassigned", project_id: "none", due_date: "" });
   };
 
   const cycleStatus = async (taskId: string, currentStatus: string) => {
@@ -103,7 +104,7 @@ const TaskBoard = () => {
     <div className="flex flex-col gap-4 h-full">
       {/* Create Task Form */}
       <div className="glass-card p-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(320px,1.5fr)_minmax(300px,1fr)_160px_170px_auto] gap-3 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(260px,1.2fr)_minmax(320px,1fr)_150px_160px_170px_auto] gap-3 items-start">
           <Input
             placeholder="Task title..."
             value={newTask.title}
@@ -139,6 +140,12 @@ const TaskBoard = () => {
               ))}
             </SelectContent>
           </Select>
+          <Input
+            type="date"
+            value={newTask.due_date}
+            onChange={(e) => setNewTask({ ...newTask, due_date: e.target.value })}
+            className="bg-muted/30 border-border text-sm h-12 w-full"
+          />
           <Button onClick={createTask} size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm h-12 px-5 self-stretch">
             + Task
           </Button>
@@ -195,6 +202,11 @@ const TaskBoard = () => {
                       <p className="text-[9px] text-muted-foreground/50 mt-1 font-mono">
                         {new Date(task.created_at).toLocaleDateString()}
                       </p>
+                      {task.due_date && (
+                        <p className="text-[9px] text-muted-foreground mt-1 font-mono">
+                          Due {new Date(task.due_date).toLocaleDateString()}
+                        </p>
+                      )}
                       {task.status === "done" && (
                         <p className="text-[9px] text-primary/70 mt-1 font-mono">
                           {getExpiryLabel(task.updated_at)}
@@ -226,6 +238,9 @@ const TaskBoard = () => {
             <div className="flex flex-wrap gap-4 text-xs font-mono text-muted-foreground">
               <span>Status: {selectedTask?.status}</span>
               <span>Created: {selectedTask ? new Date(selectedTask.created_at).toLocaleString() : ""}</span>
+              {selectedTask?.due_date && (
+                <span>Due: {new Date(selectedTask.due_date).toLocaleDateString()}</span>
+              )}
               {selectedTask?.status === "done" && selectedTask.updated_at && (
                 <span>{getExpiryLabel(selectedTask.updated_at)}</span>
               )}

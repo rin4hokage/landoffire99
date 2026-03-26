@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays, Repeat, Clock } from "lucide-react";
-import { useScheduledRuns, useTasks } from "@/hooks/useSupabaseData";
+import { useProjects, useScheduledRuns, useTasks } from "@/hooks/useSupabaseData";
 
 interface CalendarEvent {
   id: string;
@@ -19,6 +19,7 @@ const eventColors: Record<string, string> = {
 
 const CalendarView = () => {
   const { tasks } = useTasks(5000);
+  const { projects } = useProjects();
   const { scheduledRuns } = useScheduledRuns();
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -31,6 +32,15 @@ const CalendarView = () => {
         type: "deadline" as const,
         date: task.due_date!,
         assignedTo: task.assigned_to ? [task.assigned_to] : [],
+      })),
+    ...projects
+      .filter((project) => project.due_date)
+      .map((project) => ({
+        id: `project-${project.id}`,
+        title: `${project.name} (project)`,
+        type: "deadline" as const,
+        date: project.due_date!,
+        assignedTo: [],
       })),
     ...scheduledRuns
       .filter((run) => run.active && run.next_run_at)
