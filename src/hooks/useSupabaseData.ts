@@ -36,6 +36,16 @@ export interface DbComm {
   created_at: string;
 }
 
+export interface DbActivityLog {
+  id: string;
+  user_id: string;
+  task_id: string | null;
+  agent_name: string;
+  category: string;
+  message: string;
+  created_at: string;
+}
+
 export interface DbAgent {
   id: string;
   user_id: string;
@@ -167,12 +177,12 @@ export function useComms(taskId: string | null, pollInterval = 3000) {
     return () => clearInterval(interval);
   }, [fetchMessages, pollInterval]);
 
-  const sendMessage = async (message: string, activeTaskId: string) => {
+  const sendMessage = async (message: string, activeTaskId: string, sender = "EJ") => {
     if (!user) return { data: null, error: new Error("You must be signed in to send messages.") };
 
     const { data, error } = await supabase
       .from("comms")
-      .insert({ task_id: activeTaskId, user_id: user.id, sender: "EJ", message } as never)
+      .insert({ task_id: activeTaskId, user_id: user.id, sender, message } as never)
       .select()
       .single();
     if (data && !error) setMessages((prev) => [...prev, data as DbComm]);
@@ -285,4 +295,45 @@ export function useScheduledRuns() {
   }, [fetchScheduledRuns]);
 
   return { scheduledRuns, fetchScheduledRuns };
+}
+
+export function useActivityLogs(pollInterval = 5000) {
+  const { user } = useAuth();
+  const [logs, setLogs] = useState<DbActivityLog[]>([]);
+
+  const fetchLogs = useCallback(async () => {
+    if (!user) {
+      setLogs([]);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("activity_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (data) setLogs(data as DbActivityLog[]);
+  }, [user]);
+
+  useEffect(() => {
+    fetchLogs();
+    const interval = setInterval(fetchLogs, pollInterval);
+    return () => clearInterval(interval);
+  }, [fetchLogs, pollInterval]);
+
+  const addLog = async (entry: Omit<DbActivityLog, "id" | "user_id" | "created_at">) => {
+    if (!user) return { data: null, error: new Error("You must be signed in to write logs.") };
+
+    const { data, error } = await supabase
+      .from("activity_logs")
+      .insert({ ...entry, user_id: user.id } as never)
+      .select()
+      .single();
+
+    if (data && !error) setLogs((prev) => [data as DbActivityLog, ...prev]);
+    return { data, error };
+  };
+
+  return { logs, fetchLogs, addLog };
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { useAgents, useProjects, useTasks } from "@/hooks/useSupabaseData";
+import { useActivityLogs, useAgents, useComms, useProjects, useTasks } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
 import { nextPhaseForAgent, phases, phaseStatusMap } from "@/lib/agents";
 
@@ -21,6 +21,8 @@ const PipelineView = () => {
   const { tasks, updateTask } = useTasks(5000);
   const { agents, updateAgent } = useAgents();
   const { projects } = useProjects();
+  const { addLog } = useActivityLogs();
+  const { sendMessage } = useComms(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(true);
 
@@ -52,6 +54,19 @@ const PipelineView = () => {
         last_activity: new Date().toISOString(),
         status: phaseId === 8 ? "idle" : phaseId >= 4 ? "working" : "busy",
       });
+
+      await addLog({
+        task_id: task.id,
+        agent_name: assignedAgent.name,
+        category: "task_update",
+        message: `${assignedAgent.name} moved "${task.title}" into ${phases.find((phase) => phase.id === phaseId)?.name}.`,
+      });
+
+      await sendMessage(
+        `Moved task into ${phases.find((phase) => phase.id === phaseId)?.name}. Current status: ${phaseStatusMap[phaseId]}.`,
+        task.id,
+        assignedAgent.name,
+      );
     }
 
     toast.success(`Moved "${task.title}" to ${phases.find((phase) => phase.id === phaseId)?.name}.`);
