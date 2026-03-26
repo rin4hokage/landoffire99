@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const columns = [
   { id: "todo", label: "To Do" },
@@ -33,6 +40,7 @@ const TaskBoard = () => {
   const { projects } = useProjects();
   const { agents, updateAgent } = useAgents();
   const [newTask, setNewTask] = useState({ title: "", description: "", assigned_to: "unassigned", project_id: "none" });
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // Build project name lookup
   const projectNameMap: Record<string, string> = {};
@@ -77,6 +85,18 @@ const TaskBoard = () => {
     if (error) {
       toast.error(error.message || "Task status could not be updated.");
     }
+  };
+
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) || null;
+
+  const getExpiryLabel = (taskUpdatedAt: string) => {
+    const expiryTime = new Date(taskUpdatedAt).getTime() + 24 * 60 * 60 * 1000;
+    const remainingMs = expiryTime - Date.now();
+    if (remainingMs <= 0) return "Removing soon";
+
+    const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+    const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+    return `Expires in ${hours}h ${minutes}m`;
   };
 
   return (
@@ -148,7 +168,14 @@ const TaskBoard = () => {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      onClick={() => cycleStatus(task.id, task.status)}
+                      onClick={() => {
+                        if (task.status !== "done") {
+                          void cycleStatus(task.id, task.status);
+                        } else {
+                          setSelectedTaskId(task.id);
+                        }
+                      }}
+                      onDoubleClick={() => setSelectedTaskId(task.id)}
                       className={`glass-card-hover p-3 ${task.status === "done" ? "cursor-default opacity-80" : "cursor-pointer"}`}
                     >
                       <span className="text-sm font-semibold leading-tight block mb-1">{task.title}</span>
@@ -168,6 +195,11 @@ const TaskBoard = () => {
                       <p className="text-[9px] text-muted-foreground/50 mt-1 font-mono">
                         {new Date(task.created_at).toLocaleDateString()}
                       </p>
+                      {task.status === "done" && (
+                        <p className="text-[9px] text-primary/70 mt-1 font-mono">
+                          {getExpiryLabel(task.updated_at)}
+                        </p>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -176,6 +208,31 @@ const TaskBoard = () => {
           );
         })}
       </div>
+
+      <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTaskId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedTask?.assigned_to || "Unassigned"} {selectedTask?.project_id && projectNameMap[selectedTask.project_id] ? `| ${projectNameMap[selectedTask.project_id]}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-muted/20 p-4">
+              <p className="text-sm leading-6 whitespace-pre-wrap">
+                {selectedTask?.description || "No description provided."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-4 text-xs font-mono text-muted-foreground">
+              <span>Status: {selectedTask?.status}</span>
+              <span>Created: {selectedTask ? new Date(selectedTask.created_at).toLocaleString() : ""}</span>
+              {selectedTask?.status === "done" && selectedTask.updated_at && (
+                <span>{getExpiryLabel(selectedTask.updated_at)}</span>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

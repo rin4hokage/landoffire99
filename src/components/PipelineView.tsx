@@ -31,6 +31,16 @@ const PipelineView = () => {
     projectNameMap[project.id] = project.name;
   });
 
+  const getExpiryLabel = (taskUpdatedAt: string) => {
+    const expiryTime = new Date(taskUpdatedAt).getTime() + 24 * 60 * 60 * 1000;
+    const remainingMs = expiryTime - Date.now();
+    if (remainingMs <= 0) return "Removing soon";
+
+    const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+    const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+    return `Expires in ${hours}h ${minutes}m`;
+  };
+
   const handleDragStart = (taskId: string) => setDraggedTaskId(taskId);
 
   const moveTaskToPhase = async (taskId: string, phaseId: number) => {
@@ -179,6 +189,11 @@ const PipelineView = () => {
                       <span className="text-[10px] text-muted-foreground font-mono block">
                         Status: {task.status}
                       </span>
+                      {task.pipeline_phase === 8 && (
+                        <span className="text-[10px] text-primary/70 font-mono block mt-1">
+                          {getExpiryLabel(task.updated_at)}
+                        </span>
+                      )}
                       <div className="mt-3 flex gap-2">
                         <Button
                           size="sm"
