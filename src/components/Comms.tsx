@@ -37,7 +37,7 @@ const Comms = () => {
               <span className="text-sm font-semibold truncate">{t.title}</span>
             </div>
             <p className="text-[10px] text-muted-foreground truncate mt-1">
-              {t.status} · {t.assignee || "Unassigned"}
+              {t.status} · {t.assigned_to || "Unassigned"}
             </p>
           </div>
         ))}
