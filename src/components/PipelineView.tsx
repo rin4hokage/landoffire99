@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAgents, useProjects, useTasks } from "@/hooks/useSupabaseData";
+import { Button } from "@/components/ui/button";
 
 const phases = [
   { id: 1, name: "Context" },
@@ -51,10 +52,8 @@ const PipelineView = () => {
 
   const handleDragStart = (taskId: string) => setDraggedTaskId(taskId);
 
-  const handleDrop = async (phaseId: number) => {
-    if (!draggedTaskId) return;
-
-    const task = tasks.find((item) => item.id === draggedTaskId);
+  const moveTaskToPhase = async (taskId: string, phaseId: number) => {
+    const task = tasks.find((item) => item.id === taskId);
     if (!task) return;
 
     const { error } = await updateTask(task.id, {
@@ -78,6 +77,16 @@ const PipelineView = () => {
 
     toast.success(`Moved "${task.title}" to ${phases.find((phase) => phase.id === phaseId)?.name}.`);
     setDraggedTaskId(null);
+  };
+
+  const handleDrop = async (phaseId: number) => {
+    if (!draggedTaskId) return;
+    await moveTaskToPhase(draggedTaskId, phaseId);
+  };
+
+  const autoAdvanceTask = async (taskId: string, currentPhase: number) => {
+    const nextPhase = Math.min(currentPhase + 1, 8);
+    await moveTaskToPhase(taskId, nextPhase);
   };
 
   const visiblePhases = showCompleted ? phases : phases.filter((phase) => phase.id !== 8);
@@ -171,6 +180,19 @@ const PipelineView = () => {
                       <span className="text-[10px] text-muted-foreground font-mono block">
                         Status: {task.status}
                       </span>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 text-[10px] px-3 font-mono"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void autoAdvanceTask(task.id, task.pipeline_phase);
+                          }}
+                          disabled={task.pipeline_phase >= 8}
+                        >
+                          {task.pipeline_phase >= 8 ? "Closed" : `${task.assigned_to} Advance`}
+                        </Button>
+                      </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>
