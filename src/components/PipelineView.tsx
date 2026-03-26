@@ -4,17 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useAgents, useProjects, useTasks } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
-
-const phases = [
-  { id: 1, name: "Context" },
-  { id: 2, name: "Plan" },
-  { id: 3, name: "Create" },
-  { id: 4, name: "Build" },
-  { id: 5, name: "Test" },
-  { id: 6, name: "Heal" },
-  { id: 7, name: "Retest" },
-  { id: 8, name: "Close" },
-];
+import { nextPhaseForAgent, phases, phaseStatusMap } from "@/lib/agents";
 
 const phaseBorderColors = [
   "#6b7280",
@@ -26,17 +16,6 @@ const phaseBorderColors = [
   "#f97316",
   "#22d3ee",
 ];
-
-const phaseStatusMap: Record<number, string> = {
-  1: "todo",
-  2: "doing",
-  3: "doing",
-  4: "doing",
-  5: "doing",
-  6: "needs_input",
-  7: "doing",
-  8: "done",
-};
 
 const PipelineView = () => {
   const { tasks, updateTask } = useTasks(5000);
@@ -85,7 +64,12 @@ const PipelineView = () => {
   };
 
   const autoAdvanceTask = async (taskId: string, currentPhase: number) => {
-    const nextPhase = Math.min(currentPhase + 1, 8);
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) return;
+
+    const nextPhase = task.assigned_to
+      ? nextPhaseForAgent(task.assigned_to, currentPhase)
+      : Math.min(currentPhase + 1, 8);
     await moveTaskToPhase(taskId, nextPhase);
   };
 
@@ -190,7 +174,7 @@ const PipelineView = () => {
                           }}
                           disabled={task.pipeline_phase >= 8}
                         >
-                          {task.pipeline_phase >= 8 ? "Closed" : `${task.assigned_to} Advance`}
+                          {task.pipeline_phase >= 8 ? "Closed" : `Run ${task.assigned_to}`}
                         </Button>
                       </div>
                     </motion.div>
