@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useTasks, useProjects } from "@/hooks/useSupabaseData";
+import { toast } from "sonner";
+import { useTasks, useProjects, useAgents } from "@/hooks/useSupabaseData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,7 +30,8 @@ const statusCycle: Record<string, string> = {
 const TaskBoard = () => {
   const { tasks, addTask, updateTask } = useTasks(5000);
   const { projects } = useProjects();
-  const [newTask, setNewTask] = useState({ title: "", description: "", assigned_to: "", project_id: "none" });
+  const { agents } = useAgents();
+  const [newTask, setNewTask] = useState({ title: "", description: "", assigned_to: "unassigned", project_id: "none" });
 
   // Build project name lookup
   const projectNameMap: Record<string, string> = {};
@@ -37,19 +39,31 @@ const TaskBoard = () => {
 
   const createTask = async () => {
     if (!newTask.title.trim()) return;
-    await addTask({
+
+    const { error } = await addTask({
       title: newTask.title,
       description: newTask.description || null,
-      assigned_to: newTask.assigned_to || null,
+      assigned_to: newTask.assigned_to !== "unassigned" ? newTask.assigned_to : null,
       project_id: newTask.project_id && newTask.project_id !== "none" ? newTask.project_id : null,
       status: "todo",
     });
-    setNewTask({ title: "", description: "", assigned_to: "", project_id: "none" });
+
+    if (error) {
+      toast.error(error.message || "Task could not be saved.");
+      return;
+    }
+
+    toast.success("Task saved.");
+    setNewTask({ title: "", description: "", assigned_to: "unassigned", project_id: "none" });
   };
 
   const cycleStatus = async (taskId: string, currentStatus: string) => {
     const next = statusCycle[currentStatus] || "todo";
-    await updateTask(taskId, { status: next });
+    const { error } = await updateTask(taskId, { status: next });
+
+    if (error) {
+      toast.error(error.message || "Task status could not be updated.");
+    }
   };
 
   return (
@@ -70,12 +84,17 @@ const TaskBoard = () => {
             onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
             className="bg-muted/30 border-border text-sm h-8 w-[180px]"
           />
-          <Input
-            placeholder="Assigned to..."
-            value={newTask.assigned_to}
-            onChange={(e) => setNewTask({ ...newTask, assigned_to: e.target.value })}
-            className="bg-muted/30 border-border text-sm h-8 w-[130px]"
-          />
+          <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
+            <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[150px]">
+              <SelectValue placeholder="Assign agent..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {agents.map((agent) => (
+                <SelectItem key={agent.id} value={agent.name}>{agent.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={newTask.project_id} onValueChange={(v) => setNewTask({ ...newTask, project_id: v })}>
             <SelectTrigger className="bg-muted/30 border-border text-sm h-8 w-[160px]">
               <SelectValue placeholder="Project..." />
