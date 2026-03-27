@@ -131,6 +131,7 @@ export function useTasks(pollInterval = 5000) {
   const deleteTask = async (id: string) => {
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (!error) setTasks((prev) => prev.filter((t) => t.id !== id));
+    return { error };
   };
 
   return { tasks, fetchTasks, addTask, updateTask, deleteTask };

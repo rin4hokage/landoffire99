@@ -25,6 +25,7 @@ const PipelineView = () => {
   const { sendMessage } = useComms(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [runningTaskIds, setRunningTaskIds] = useState<string[]>([]);
 
   const projectNameMap: Record<string, string> = {};
   projects.forEach((project) => {
@@ -92,12 +93,24 @@ const PipelineView = () => {
   };
 
   const autoAdvanceTask = async (taskId: string, currentPhase: number) => {
-    const nextPhase = Math.min(currentPhase + 1, 8);
-    await moveTaskToPhase(taskId, nextPhase);
+    setRunningTaskIds((prev) => [...prev, taskId]);
+
+    try {
+      for (let phaseId = currentPhase + 1; phaseId <= 8; phaseId += 1) {
+        await moveTaskToPhase(taskId, phaseId);
+      }
+    } finally {
+      setRunningTaskIds((prev) => prev.filter((id) => id !== taskId));
+    }
   };
 
   const removeTask = async (taskId: string, title: string) => {
-    await deleteTask(taskId);
+    const { error } = await deleteTask(taskId);
+    if (error) {
+      toast.error(error.message || `Could not delete "${title}".`);
+      return;
+    }
+
     toast.success(`Deleted "${title}".`);
   };
 
@@ -129,6 +142,8 @@ const PipelineView = () => {
       >
         {visiblePhases.map((phase) => {
           const phaseTasks = assignedTasks.filter((task) => task.pipeline_phase === phase.id);
+
+          const isRunning = runningTaskIds.includes(task.id);
 
           return (
             <div
@@ -205,9 +220,9 @@ const PipelineView = () => {
                             event.stopPropagation();
                             void autoAdvanceTask(task.id, task.pipeline_phase);
                           }}
-                          disabled={task.pipeline_phase >= 8}
+                          disabled={task.pipeline_phase >= 8 || isRunning}
                         >
-                          {task.pipeline_phase >= 8 ? "Closed" : `Advance to ${phases[Math.min(task.pipeline_phase, 7)].name}`}
+                          {task.pipeline_phase >= 8 ? "Closed" : isRunning ? "Running Pipeline..." : `Run ${task.assigned_to || "Pipeline"}`}
                         </Button>
                         {task.pipeline_phase === 8 && (
                           <Button
