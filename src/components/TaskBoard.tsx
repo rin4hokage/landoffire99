@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { agentForPhase } from "@/lib/agents";
 
 const columns = [
   { id: "todo", label: "To Do" },
@@ -52,11 +53,11 @@ const TaskBoard = () => {
     const { data, error } = await addTask({
       title: newTask.title,
       description: newTask.description || null,
-      assigned_to: newTask.assigned_to !== "unassigned" ? newTask.assigned_to : null,
+      assigned_to: agentForPhase(1),
       project_id: newTask.project_id && newTask.project_id !== "none" ? newTask.project_id : null,
       due_date: newTask.due_date || null,
       status: "todo",
-      pipeline_phase: newTask.assigned_to !== "unassigned" ? 2 : 1,
+      pipeline_phase: 1,
     });
 
     if (error) {
@@ -64,7 +65,7 @@ const TaskBoard = () => {
       return;
     }
 
-    const selectedAgent = agents.find((agent) => agent.name === newTask.assigned_to);
+    const selectedAgent = agents.find((agent) => agent.name === agentForPhase(1));
     if (selectedAgent && data) {
       await updateAgent(selectedAgent.id, {
         current_task_id: data.id,

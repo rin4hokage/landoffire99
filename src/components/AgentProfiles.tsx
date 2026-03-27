@@ -4,16 +4,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAgents, useTasks } from "@/hooks/useSupabaseData";
-import rinAvatar from "@/assets/rin-avatar.jpg";
-import hinataAvatar from "@/assets/hinata-avatar.jpg";
-import mikasaAvatar from "@/assets/mikasa-avatar.jpg";
-import { agentPhaseMap, agentRoleMap, nextPhaseForAgent, phaseStatusMap, phases } from "@/lib/agents";
-
-const agentAvatarMap: Record<string, string> = {
-  Rin: rinAvatar,
-  Hinata: hinataAvatar,
-  Mikasa: mikasaAvatar,
-};
+import { agentAvatarMap } from "@/lib/agentMeta";
+import { agentForPhase, agentPhaseMap, agentRoleMap, phaseStatusMap, phases } from "@/lib/agents";
 
 const statusClass = (s: string) =>
   s === "busy" || s === "working" ? "status-active" : "status-idle";
@@ -28,16 +20,17 @@ const AgentProfiles = () => {
     if (!agent) return;
 
     const ownedPhases = agentPhaseMap[agent.name] || [];
-    const task = tasks.find((item) => item.assigned_to === agent.name && item.pipeline_phase < 8 && ownedPhases.includes(item.pipeline_phase));
+    const task = tasks.find((item) => item.pipeline_phase < 8 && ownedPhases.includes(item.pipeline_phase));
 
     if (!task) {
       toast.message(`${agent.name} has nothing queued in their phases right now.`);
       return;
     }
 
-    const nextPhase = nextPhaseForAgent(agent.name, task.pipeline_phase);
+    const nextPhase = Math.min(task.pipeline_phase + 1, 8);
     const { error } = await updateTask(task.id, {
       pipeline_phase: nextPhase,
+      assigned_to: agentForPhase(nextPhase),
       status: phaseStatusMap[nextPhase],
     });
 
@@ -76,7 +69,7 @@ const AgentProfiles = () => {
         >
           <div className="flex items-center gap-4 mb-4">
             <img
-              src={agentAvatarMap[agent.name] || rinAvatar}
+              src={agentAvatarMap[agent.name] || agentAvatarMap.Rin}
               alt={agent.name}
               className="w-12 h-12 rounded-full object-cover"
               loading="lazy"

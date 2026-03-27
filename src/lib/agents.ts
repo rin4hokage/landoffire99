@@ -22,15 +22,29 @@ export const phaseStatusMap: Record<number, string> = {
 
 export const agentRoleMap: Record<string, string> = {
   Rin: "Lead Orchestrator",
+  Sakura: "Artwork Generator",
   Hinata: "Builder",
   Mikasa: "Analyst",
 };
 
 export const agentPhaseMap: Record<string, number[]> = {
   Rin: [1, 2, 8],
-  Hinata: [3, 4, 5],
+  Sakura: [3],
+  Hinata: [4, 5],
   Mikasa: [6, 7],
 };
+
+export const phaseAgentMap: Record<number, string> = Object.entries(agentPhaseMap).reduce<Record<number, string>>(
+  (map, [agentName, ownedPhases]) => {
+    ownedPhases.forEach((phase) => {
+      map[phase] = agentName;
+    });
+    return map;
+  },
+  {},
+);
+
+export const agentForPhase = (phase: number) => phaseAgentMap[phase] || "Rin";
 
 export const nextPhaseForAgent = (agentName: string, currentPhase: number) => {
   const ownedPhases = agentPhaseMap[agentName] || [];

@@ -6,15 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjects, useDashboardStats, useAgents } from "@/hooks/useSupabaseData";
-import rinAvatar from "@/assets/rin-avatar.jpg";
-import hinataAvatar from "@/assets/hinata-avatar.jpg";
-import mikasaAvatar from "@/assets/mikasa-avatar.jpg";
-
-const agentAvatarMap: Record<string, string> = {
-  Rin: rinAvatar,
-  Hinata: hinataAvatar,
-  Mikasa: mikasaAvatar,
-};
+import { agentAvatarMap } from "@/lib/agentMeta";
 
 const projectColorOptions = ["#10b981", "#06b6d4", "#f59e0b", "#8b5cf6", "#ef4444", "#ec4899"];
 
@@ -125,7 +117,7 @@ const CommandDeck = () => {
             {agents.map((a) => (
               <div key={a.id} className="glass-card-hover p-3">
                 <div className="flex items-center gap-3">
-                  <img src={agentAvatarMap[a.name] || rinAvatar} alt={a.name} className="w-8 h-8 rounded-full object-cover" loading="lazy" />
+                  <img src={agentAvatarMap[a.name] || agentAvatarMap.Rin} alt={a.name} className="w-8 h-8 rounded-full object-cover" loading="lazy" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-sm">{a.name}</span>

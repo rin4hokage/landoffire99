@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useActivityLogs, useAgents, useComms, useProjects, useTasks } from "@/hooks/useSupabaseData";
 import { Button } from "@/components/ui/button";
-import { nextPhaseForAgent, phases, phaseStatusMap } from "@/lib/agents";
+import { agentForPhase, phases, phaseStatusMap } from "@/lib/agents";
 
 const phaseBorderColors = [
   "#6b7280",
@@ -18,7 +18,7 @@ const phaseBorderColors = [
 ];
 
 const PipelineView = () => {
-  const { tasks, updateTask } = useTasks(5000);
+  const { tasks, updateTask, deleteTask } = useTasks(5000);
   const { agents, updateAgent } = useAgents();
   const { projects } = useProjects();
   const { addLog } = useActivityLogs();
@@ -47,8 +47,11 @@ const PipelineView = () => {
     const task = tasks.find((item) => item.id === taskId);
     if (!task) return;
 
+    const nextAgentName = agentForPhase(phaseId);
+
     const { error } = await updateTask(task.id, {
       pipeline_phase: phaseId,
+      assigned_to: nextAgentName,
       status: phaseStatusMap[phaseId],
     });
 
@@ -57,7 +60,7 @@ const PipelineView = () => {
       return;
     }
 
-    const assignedAgent = task.assigned_to ? agents.find((agent) => agent.name === task.assigned_to) : null;
+    const assignedAgent = agents.find((agent) => agent.name === nextAgentName);
     if (assignedAgent) {
       await updateAgent(assignedAgent.id, {
         current_task_id: phaseId === 8 ? null : task.id,
@@ -89,13 +92,13 @@ const PipelineView = () => {
   };
 
   const autoAdvanceTask = async (taskId: string, currentPhase: number) => {
-    const task = tasks.find((item) => item.id === taskId);
-    if (!task) return;
-
-    const nextPhase = task.assigned_to
-      ? nextPhaseForAgent(task.assigned_to, currentPhase)
-      : Math.min(currentPhase + 1, 8);
+    const nextPhase = Math.min(currentPhase + 1, 8);
     await moveTaskToPhase(taskId, nextPhase);
+  };
+
+  const removeTask = async (taskId: string, title: string) => {
+    await deleteTask(taskId);
+    toast.success(`Deleted "${title}".`);
   };
 
   const visiblePhases = showCompleted ? phases : phases.filter((phase) => phase.id !== 8);
@@ -204,8 +207,21 @@ const PipelineView = () => {
                           }}
                           disabled={task.pipeline_phase >= 8}
                         >
-                          {task.pipeline_phase >= 8 ? "Closed" : `Run ${task.assigned_to}`}
+                          {task.pipeline_phase >= 8 ? "Closed" : `Advance to ${phases[Math.min(task.pipeline_phase, 7)].name}`}
                         </Button>
+                        {task.pipeline_phase === 8 && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-[10px] px-3 font-mono"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void removeTask(task.id, task.title);
+                            }}
+                          >
+                            Delete Task
+                          </Button>
+                        )}
                       </div>
                     </motion.div>
                   ))}

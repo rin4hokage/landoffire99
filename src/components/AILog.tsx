@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useActivityLogs } from "@/hooks/useSupabaseData";
+import { agentInitialMap } from "@/lib/agentMeta";
 
 const categoryColors: Record<string, string> = {
   observation: "#10b981",
@@ -9,12 +10,6 @@ const categoryColors: Record<string, string> = {
   task_update: "#f59e0b",
   error: "#ef4444",
   question: "#06b6d4",
-};
-
-const agentEmojiMap: Record<string, string> = {
-  Rin: "R",
-  Hinata: "H",
-  Mikasa: "M",
 };
 
 const AILog = () => {
@@ -47,6 +42,7 @@ const AILog = () => {
           <SelectContent>
             <SelectItem value="all">All Agents</SelectItem>
             <SelectItem value="Rin">Rin</SelectItem>
+            <SelectItem value="Sakura">Sakura</SelectItem>
             <SelectItem value="Hinata">Hinata</SelectItem>
             <SelectItem value="Mikasa">Mikasa</SelectItem>
           </SelectContent>
@@ -68,7 +64,7 @@ const AILog = () => {
             className="glass-card p-3 flex items-start gap-3 border-l-2 border-l-primary"
           >
             <span className="text-sm flex h-7 w-7 items-center justify-center rounded-full bg-muted/40 font-mono">
-              {agentEmojiMap[entry.agent_name] || "?"}
+              {agentInitialMap[entry.agent_name] || "?"}
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
