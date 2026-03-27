@@ -143,8 +143,6 @@ const PipelineView = () => {
         {visiblePhases.map((phase) => {
           const phaseTasks = assignedTasks.filter((task) => task.pipeline_phase === phase.id);
 
-          const isRunning = runningTaskIds.includes(task.id);
-
           return (
             <div
               key={phase.id}
@@ -171,6 +169,9 @@ const PipelineView = () => {
               <div className="space-y-2 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
                 <AnimatePresence>
                   {phaseTasks.map((task) => (
+                    (() => {
+                      const isRunning = runningTaskIds.includes(task.id);
+                      return (
                     <motion.div
                       key={task.id}
                       layout
@@ -239,6 +240,8 @@ const PipelineView = () => {
                         )}
                       </div>
                     </motion.div>
+                      );
+                    })()
                   ))}
                 </AnimatePresence>
 

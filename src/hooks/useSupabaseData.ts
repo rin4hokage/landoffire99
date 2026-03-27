@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const TASK_RETENTION_HOURS = 24;
 const LOG_RETENTION_HOURS = 48;
+const DEFAULT_AGENT_NAMES = ["Rin", "Sakura", "Hinata", "Mikasa"] as const;
 
 export interface DbTask {
   id: string;
@@ -227,7 +228,23 @@ export function useAgents(pollInterval = 10000) {
     const { data } = await supabase
       .from("agents")
       .select("*");
-    if (data) setAgents(data as DbAgent[]);
+    if (data) {
+      const currentAgents = data as DbAgent[];
+      const currentAgentNames = new Set(currentAgents.map((agent) => agent.name));
+      const missingAgentNames = DEFAULT_AGENT_NAMES.filter((name) => !currentAgentNames.has(name));
+
+      if (missingAgentNames.length > 0) {
+        const { data: insertedAgents } = await supabase
+          .from("agents")
+          .insert(missingAgentNames.map((name) => ({ user_id: user.id, name, status: "idle" })) as never)
+          .select("*");
+
+        setAgents(insertedAgents ? [...currentAgents, ...(insertedAgents as DbAgent[])] : currentAgents);
+        return;
+      }
+
+      setAgents(currentAgents);
+    }
   }, [user]);
 
   useEffect(() => {
