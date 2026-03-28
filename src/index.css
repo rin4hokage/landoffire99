@@ -329,7 +329,7 @@
     border-radius: 9999px;
     padding: 1rem 0.7rem;
     letter-spacing: 0.35em;
-    font-size: 10px;
+    font-size: 1.08rem;
     color: rgba(255, 255, 255, 0.42);
     background: rgba(255, 255, 255, 0.03);
     backdrop-filter: none;
@@ -443,7 +443,7 @@
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.025);
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 600;
     transition: all 0.2s ease;
   }
@@ -464,7 +464,7 @@
     color: #fff;
     background: linear-gradient(135deg, #88abc7 0%, #7a9ab4 100%);
     clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 50%, calc(100% - 22px) 100%, 0 100%);
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 700;
     transition: filter 0.2s ease;
   }
@@ -483,7 +483,7 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(133, 168, 198, 0.12);
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 700;
   }
 
@@ -497,7 +497,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(255, 255, 255, 0.03);
     color: rgba(255, 255, 255, 0.86);
-    font-size: 0.95rem;
+    font-size: 1.08rem;
   }
 
   .void-input {
@@ -776,7 +776,7 @@
     background: linear-gradient(135deg, #ff8a63 0%, #ff6c5c 100%);
     padding: 0.9rem 1.4rem;
     color: white;
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 600;
     box-shadow: 0 12px 30px rgba(255, 138, 99, 0.28);
     transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
@@ -797,7 +797,7 @@
     background: rgba(255, 255, 255, 0.06);
     padding: 0.9rem 1.25rem;
     color: white;
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 500;
     transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   }
@@ -818,7 +818,7 @@
     background: rgba(12, 12, 14, 0.72);
     padding: 0.9rem 1.25rem;
     color: rgba(255, 255, 255, 0.94);
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 600;
     font-family: "Inter", system-ui, sans-serif;
     transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -844,9 +844,10 @@
 
   .void-dashboard-input,
   .void-dashboard-select {
-    min-height: 36px;
+    min-height: 40px;
     border-radius: 12px;
     padding: 0 0.7rem;
+    font-size: 1.08rem;
   }
 
   .void-dashboard-select {
@@ -886,13 +887,13 @@
   .void-product-pill {
     display: inline-flex;
     min-width: 0;
-    min-height: 32px;
+    min-height: 36px;
     align-items: center;
     justify-content: center;
-    gap: 0.3rem;
+    gap: 0.38rem;
     border-radius: 9999px;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.62rem;
+    padding: 0.48rem 0.68rem;
+    font-size: 1.08rem;
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
@@ -1029,7 +1030,7 @@
     background: rgba(255, 255, 255, 0.03);
     padding: 0 0.95rem;
     color: #fff;
-    font-size: 0.88rem;
+    font-size: 1.08rem;
     font-weight: 600;
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
     white-space: nowrap;
@@ -1088,7 +1089,7 @@
     background-clip: text;
     -webkit-text-stroke: 0.4px rgba(24, 20, 18, 0.95);
     font-family: "Nosifer", "Marker Felt", "Impact", fantasy;
-    font-size: 0.78rem;
+    font-size: 1.08rem;
     font-weight: 400;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -1187,7 +1188,7 @@
     background-clip: text;
     -webkit-text-stroke: 0.5px rgba(24, 20, 18, 0.94);
     font-family: "Patrick Hand SC", "Inter", system-ui, sans-serif;
-    font-size: 0.92rem;
+    font-size: 1.08rem;
     font-weight: 400;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -1214,7 +1215,7 @@
     background: rgba(255, 255, 255, 0.04);
     padding: 0.5rem 0.9rem;
     color: rgba(255, 255, 255, 0.74);
-    font-size: 0.78rem;
+    font-size: 1.08rem;
     text-transform: uppercase;
     letter-spacing: 0.15em;
     transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
@@ -1329,7 +1330,7 @@
     background-clip: text;
     -webkit-text-stroke: 0.4px rgba(24, 20, 18, 0.94);
     font-family: "Nosifer", "Marker Felt", "Impact", fantasy;
-    font-size: 0.8rem;
+    font-size: 1.08rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.18);
@@ -1360,7 +1361,7 @@
 
   .void-store-hero-stat-label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 1.08rem;
     text-transform: uppercase;
     letter-spacing: 0.22em;
     color: rgba(255, 255, 255, 0.44);
@@ -1426,7 +1427,7 @@
     background: rgba(255, 255, 255, 0.04);
     padding: 0 1rem;
     color: rgba(255, 255, 255, 0.86);
-    font-size: 0.85rem;
+    font-size: 1.08rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
@@ -1449,7 +1450,7 @@
     background: rgba(8, 8, 10, 0.78);
     padding: 0 1.45rem;
     color: #fff;
-    font-size: 0.95rem;
+    font-size: 1.08rem;
     font-weight: 700;
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
     transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
@@ -1524,7 +1525,7 @@
     align-items: center;
     gap: 0.6rem;
     color: #ffceb8;
-    font-size: 0.88rem;
+    font-size: 1.08rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1549,7 +1550,7 @@
 
   .void-store-admin-status {
     color: rgba(255, 255, 255, 0.5);
-    font-size: 0.8rem;
+    font-size: 1.08rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1595,7 +1596,7 @@
 
   .void-store-footer-link {
     color: rgba(255, 255, 255, 0.56);
-    font-size: 0.88rem;
+    font-size: 1.08rem;
     transition: color 0.2s ease;
   }
 
@@ -1619,6 +1620,20 @@
     background: rgba(10, 10, 12, 0.92);
     padding: 0.9rem 1rem;
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  }
+
+  .void-store-shell [class*="text-[10px]"],
+  .void-store-shell [class*="text-[11px]"],
+  .void-store-shell [class*="text-[12px]"],
+  .void-store-shell [class*="text-[13px]"],
+  .void-store-shell [class~="text-xs"] {
+    font-size: 1.08rem !important;
+    line-height: 1.4;
+  }
+
+  .void-store-shell [class~="text-sm"] {
+    font-size: 1.08rem !important;
+    line-height: 1.45;
   }
 
   @media (min-width: 1080px) {

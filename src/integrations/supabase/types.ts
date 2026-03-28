@@ -87,6 +87,87 @@ export type Database = {
           },
         ]
       }
+      beat_reviews: {
+        Row: {
+          beat_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          rating: number
+          user_id: string | null
+        }
+        Insert: {
+          beat_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating: number
+          user_id?: string | null
+        }
+        Update: {
+          beat_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          rating?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      beat_sales: {
+        Row: {
+          beat_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          license_key: string
+          license_type: string
+          price: number
+          user_id: string | null
+        }
+        Insert: {
+          beat_id: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key: string
+          license_type: string
+          price: number
+          user_id?: string | null
+        }
+        Update: {
+          beat_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          license_key?: string
+          license_type?: string
+          price?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      email_signups: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       storefront_beat_tags: {
         Row: {
           beat_id: string

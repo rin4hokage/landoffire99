@@ -33,16 +33,32 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type SectionId = "home" | "beats" | "drumkits" | "loops" | "artwork" | "contact" | "socials" | "terms" | "signin" | "signup" | "profile" | "checkout";
 type LicenseName = "Basic Lease" | "Exclusive Lease";
+type BeatSortOption = "newest" | "most-sold" | "highest-rated" | "bpm";
+type BpmFilterOption = "all" | "under-140" | "140-150" | "150-160" | "160-plus";
 
 type Beat = {
   id: string;
   title: string;
   artist: string;
   bpm: number;
+  musicalKey?: string;
   tags: string[];
   imageUrl: string;
   previewUrl: string;
   purchaseUrl: string;
+};
+
+type BeatReview = {
+  author: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
+type BeatMarketStats = {
+  favoriteCount: number;
+  soldCount: number;
+  reviews: BeatReview[];
 };
 
 type StoreItem = {
@@ -108,7 +124,14 @@ type OrderItem = {
   title: string;
   license: LicenseName;
   price: number;
+  licenseKey: string;
+  expiresAt: string | null;
   purchasedAt: string;
+};
+
+type CheckoutReceipt = {
+  orders: OrderItem[];
+  completedAt: string;
 };
 
 type SocialLinks = {
@@ -163,6 +186,7 @@ const PROMO_STORAGE_KEY = "void-promo";
 const STORE_ITEMS_STORAGE_KEY = "void-store-items";
 const SOCIAL_LINKS_STORAGE_KEY = "void-social-links";
 const CONTACT_MESSAGES_STORAGE_KEY = "void-contact-messages";
+const EMAIL_SIGNUPS_STORAGE_KEY = "void-email-signups";
 const PUBLISHED_STOREFRONT_STORAGE_KEY = "void-published-storefront";
 const STOREFRONT_CONFIG_PREFIX = "__void_storefront__:";
 const STOREFRONT_CONFIG_VERSION_MARKER = "::version::";
@@ -203,11 +227,46 @@ const DEFAULT_FEATURED_STORE_ITEM_IDS: Record<StoreSectionName, string[]> = {
   artwork: [],
 };
 const DEFAULT_SOCIAL_LINKS: SocialLinks = {
-  tiktok: "",
-  instagram: "",
+  tiktok: "https://www.tiktok.com/@ejcertified_",
+  instagram: "https://www.instagram.com/ejcertified_/",
   twitter: "",
   youtube: "",
 };
+const LICENSE_REFERENCE_ROWS = {
+  basic: [
+    "Commercial use allowed",
+    "Up to 50k streams/views",
+    "2 year license",
+    "2 artist/project",
+    "Can upgrade to Exclusive",
+  ],
+  exclusive: [
+    "100% yours",
+    "Unlimited use",
+    "No credit required",
+    "We stop selling it",
+    "Modify and remix",
+  ],
+} as const;
+const BPM_FILTERS: { id: BpmFilterOption; label: string }[] = [
+  { id: "all", label: "All BPM" },
+  { id: "under-140", label: "<140" },
+  { id: "140-150", label: "140-150" },
+  { id: "150-160", label: "150-160" },
+  { id: "160-plus", label: "160+" },
+];
+const BEAT_SORT_OPTIONS: { id: BeatSortOption; label: string }[] = [
+  { id: "newest", label: "Newest" },
+  { id: "most-sold", label: "Most Sold" },
+  { id: "highest-rated", label: "Highest Rated" },
+  { id: "bpm", label: "BPM" },
+];
+const EMPTY_BEAT_MARKET_STATS: BeatMarketStats = {
+  favoriteCount: 0,
+  soldCount: 0,
+  reviews: [],
+};
+const BEAT_MARKET_STATS: Record<string, BeatMarketStats> = {};
 
 const publicAsset = (filename: string) => `/${encodeURIComponent(filename)}`;
 const publicFolderAsset = (folder: string, filename: string) => `/${folder}/${encodeURIComponent(filename)}`;
@@ -237,6 +296,7 @@ const beats: Beat[] = [
     title: "VVV",
     artist: "EJCERTIFIED",
     bpm: 146,
+    musicalKey: "D Minor",
     tags: ["Dark", "Untagged"],
     imageUrl: publicAsset("Decided to post my graphic design work on pinterest maybe I can find my target audience here lol if you like my work please check out my IG @Ukihanee.jpg"),
     previewUrl: "/audio/vvv-146bpm-ejcertified.mp3",
@@ -247,6 +307,7 @@ const beats: Beat[] = [
     title: "FAKE BIH",
     artist: "EJCERTIFIED",
     bpm: 147,
+    musicalKey: "F Minor",
     tags: ["Hard", "Untagged"],
     imageUrl: publicAsset("disturbance.jpg"),
     previewUrl: "/audio/fake-bih-147-ejcertified.mp3",
@@ -257,6 +318,7 @@ const beats: Beat[] = [
     title: "BRUNSON IS TRASH OMG",
     artist: "EJCERTIFIED",
     bpm: 148,
+    musicalKey: "C# Minor",
     tags: ["Dark", "Aggressive"],
     imageUrl: publicAsset("download (1).jpg"),
     previewUrl: "/audio/brunson-is-trash-omg-148-ejcertified.mp3",
@@ -267,6 +329,7 @@ const beats: Beat[] = [
     title: "DIE 4 U",
     artist: "EJCERTIFIED",
     bpm: 140,
+    musicalKey: "A Minor",
     tags: ["Melodic", "Dark"],
     imageUrl: publicAsset("download (2).jpg"),
     previewUrl: "/audio/die-4-u-140-ejcertified.mp3",
@@ -277,6 +340,7 @@ const beats: Beat[] = [
     title: "SAME OLE SHII",
     artist: "EJCERTIFIED",
     bpm: 147,
+    musicalKey: "E Minor",
     tags: ["Hard", "Street"],
     imageUrl: publicAsset("download.jpg"),
     previewUrl: "/audio/same-ole-shii-147-ejcertified.mp3",
@@ -287,6 +351,7 @@ const beats: Beat[] = [
     title: "SOSA",
     artist: "EJCERTIFIED",
     bpm: 144,
+    musicalKey: "G Minor",
     tags: ["Dark", "Bouncy"],
     imageUrl: publicAsset("Ken Carson.jpg"),
     previewUrl: "/audio/sosa-144-ejcertified.mp3",
@@ -297,6 +362,7 @@ const beats: Beat[] = [
     title: "JUST LOST $100",
     artist: "EJCERTIFIED",
     bpm: 149,
+    musicalKey: "B Minor",
     tags: ["Dark", "Upbeat"],
     imageUrl: publicAsset("Large Vertical Chinese Landscape Painting, Giclee Print, Pavilion Fairyland Art, Handmade Silk Hanging Scroll, Shan Shui Wall Hanging - Etsy.jpg"),
     previewUrl: "/audio/just-lost-100-149bpm-ejcertified.mp3",
@@ -307,6 +373,7 @@ const beats: Beat[] = [
     title: "TATS ON MY ARM",
     artist: "EJCERTIFIED",
     bpm: 152,
+    musicalKey: "F# Minor",
     tags: ["Fast", "Aggressive"],
     imageUrl: publicAsset("࿂ ໋᳝֘·⋆ 𝐐𝐈𝐒𝐇𝐎𝐎 ☆.jpg"),
     previewUrl: "/audio/tats-on-my-arm-152bpm-ejcertified.mp3",
@@ -317,6 +384,7 @@ const beats: Beat[] = [
     title: "6TH ANGEL",
     artist: "EJCERTIFIED",
     bpm: 149,
+    musicalKey: "C Minor",
     tags: ["Dark", "Eerie"],
     imageUrl: publicAsset("𝗬𝘂𝗻𝗷𝗶𝗻.jpg"),
     previewUrl: "/audio/6th-angel-149-ejcertified.mp3",
@@ -386,6 +454,41 @@ const buildBeatTagsFromRows = (rows: StorefrontBeatTagRow[]) => {
 };
 
 const getBeatImageUrl = (beat: Beat) => BEAT_IMAGE_OVERRIDES[beat.id] ?? beat.imageUrl;
+const getBeatMarketStats = (beatId: string): BeatMarketStats => BEAT_MARKET_STATS[beatId] ?? EMPTY_BEAT_MARKET_STATS;
+const getBeatAverageRating = (beatId: string) => {
+  const reviews = getBeatMarketStats(beatId).reviews;
+  if (!reviews.length) return 0;
+  return reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+};
+const formatBeatRating = (beatId: string) => {
+  const rating = getBeatAverageRating(beatId);
+  return rating ? rating.toFixed(1) : "New";
+};
+const matchesBpmFilter = (bpm: number, filter: BpmFilterOption) => {
+  switch (filter) {
+    case "under-140":
+      return bpm < 140;
+    case "140-150":
+      return bpm >= 140 && bpm <= 150;
+    case "150-160":
+      return bpm > 150 && bpm <= 160;
+    case "160-plus":
+      return bpm > 160;
+    default:
+      return true;
+  }
+};
+const createLicenseKey = () =>
+  `VOID-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}${Math.random()
+    .toString(36)
+    .slice(2, 5)
+    .toUpperCase()}`;
+const getLicenseExpiry = (license: LicenseName, purchasedAt: string) => {
+  if (license === "Exclusive Lease") return null;
+  const expiry = new Date(purchasedAt);
+  expiry.setFullYear(expiry.getFullYear() + 2);
+  return expiry.toISOString();
+};
 const normalizeStringArray = (value: unknown) =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 
@@ -394,17 +497,38 @@ const normalizePaymentMethods = (value: unknown): PaymentMethod[] =>
 
 const normalizeOrders = (value: unknown): OrderItem[] =>
   Array.isArray(value)
-    ? value.filter(
-        (entry): entry is OrderItem =>
-          typeof entry === "object" &&
-          entry !== null &&
-          typeof (entry as OrderItem).id === "string" &&
-          typeof (entry as OrderItem).beatId === "string" &&
-          typeof (entry as OrderItem).title === "string" &&
-          typeof (entry as OrderItem).license === "string" &&
-          typeof (entry as OrderItem).price === "number" &&
-          typeof (entry as OrderItem).purchasedAt === "string",
-      )
+    ? value.flatMap((entry) => {
+        if (typeof entry !== "object" || entry === null) return [];
+        const source = entry as Partial<OrderItem>;
+        if (
+          typeof source.id !== "string" ||
+          typeof source.beatId !== "string" ||
+          typeof source.title !== "string" ||
+          typeof source.license !== "string" ||
+          typeof source.price !== "number" ||
+          typeof source.purchasedAt !== "string"
+        ) {
+          return [];
+        }
+
+        const license = source.license === "Exclusive Lease" ? "Exclusive Lease" : "Basic Lease";
+
+        return [
+          {
+            id: source.id,
+            beatId: source.beatId,
+            title: source.title,
+            license,
+            price: source.price,
+            licenseKey: typeof source.licenseKey === "string" ? source.licenseKey : createLicenseKey(),
+            expiresAt:
+              typeof source.expiresAt === "string" || source.expiresAt === null
+                ? source.expiresAt ?? getLicenseExpiry(license, source.purchasedAt)
+                : getLicenseExpiry(license, source.purchasedAt),
+            purchasedAt: source.purchasedAt,
+          },
+        ];
+      })
     : [];
 
 const normalizeProfileForm = (value: unknown): ProfileForm => {
@@ -994,6 +1118,8 @@ const Index = () => {
   const [selectedBeatId, setSelectedBeatId] = useState(beats[0].id);
   const [uploadedBeats, setUploadedBeats] = useState<Beat[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [beatSort, setBeatSort] = useState<BeatSortOption>("newest");
+  const [bpmFilter, setBpmFilter] = useState<BpmFilterOption>("all");
   const [currentPreviewBeatId, setCurrentPreviewBeatId] = useState<string | null>(null);
   const [previewProgress, setPreviewProgress] = useState<Record<string, number>>({});
   const [licenseSelections, setLicenseSelections] = useState<Record<string, LicenseName>>(
@@ -1044,11 +1170,14 @@ const Index = () => {
     subject: "",
     message: "",
   });
+  const [emailSignup, setEmailSignup] = useState("");
+  const [emailSignupState, setEmailSignupState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [queueItems, setQueueItems] = useState<StoreItem[]>([]);
   const [userStateLoaded, setUserStateLoaded] = useState(false);
   const [storefrontConfigLoaded, setStorefrontConfigLoaded] = useState(false);
   const [storefrontSaveState, setStorefrontSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [checkoutReceipt, setCheckoutReceipt] = useState<CheckoutReceipt | null>(null);
   const userStateSaveTimerRef = useRef<number | null>(null);
   const storefrontConfigFingerprintRef = useRef("");
   const [accountProfile, setAccountProfile] = useState<ProfileRow | null>(null);
@@ -1128,19 +1257,35 @@ const Index = () => {
 
   const filteredBeats = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return allBeats.filter((beat) => {
-      const currentTags = beatTags[beat.id] ?? beat.tags;
-      const queryMatch =
-        query.length === 0 ||
-        beat.title.toLowerCase().includes(query) ||
-        beat.artist.toLowerCase().includes(query) ||
-        currentTags.some((tag) => tag.toLowerCase().includes(query));
-      const tagMatch =
-        activeTagFilter.length === 0 ||
-        currentTags.some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase());
-      return queryMatch && tagMatch;
-    });
-  }, [activeTagFilter, allBeats, beatTags, searchQuery]);
+    const beatOrder = new Map(allBeats.map((beat, index) => [beat.id, index]));
+
+    return allBeats
+      .filter((beat) => {
+        const currentTags = beatTags[beat.id] ?? beat.tags;
+        const queryMatch =
+          query.length === 0 ||
+          beat.title.toLowerCase().includes(query) ||
+          beat.artist.toLowerCase().includes(query) ||
+          currentTags.some((tag) => tag.toLowerCase().includes(query));
+        const tagMatch =
+          activeTagFilter.length === 0 ||
+          currentTags.some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase());
+        const bpmMatch = matchesBpmFilter(beat.bpm, bpmFilter);
+        return queryMatch && tagMatch && bpmMatch;
+      })
+      .sort((left, right) => {
+        if (beatSort === "most-sold") {
+          return getBeatMarketStats(right.id).soldCount - getBeatMarketStats(left.id).soldCount;
+        }
+        if (beatSort === "highest-rated") {
+          return getBeatAverageRating(right.id) - getBeatAverageRating(left.id);
+        }
+        if (beatSort === "bpm") {
+          return right.bpm - left.bpm;
+        }
+        return (beatOrder.get(right.id) ?? 0) - (beatOrder.get(left.id) ?? 0);
+      });
+  }, [activeTagFilter, allBeats, beatSort, beatTags, bpmFilter, searchQuery]);
 
   const allBeatTags = useMemo(
     () =>
@@ -1166,6 +1311,9 @@ const Index = () => {
   const featuredHomeBeats = featuredBeatIds
     .map((beatId) => allBeats.find((beat) => beat.id === beatId))
     .filter((beat): beat is Beat => Boolean(beat));
+  const trendingBeats = [...allBeats]
+    .sort((left, right) => getBeatMarketStats(right.id).soldCount - getBeatMarketStats(left.id).soldCount)
+    .slice(0, 3);
 
   const selectedLicense = licenseSelections[selectedBeat.id] ?? "Basic Lease";
   const selectedPrice = LICENSES[selectedLicense];
@@ -1764,6 +1912,221 @@ const Index = () => {
       </div>
     ) : null;
 
+  const renderBeatDiscoveryControls = () => (
+    <div className="space-y-3 rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(16,16,18,0.9),rgba(10,10,12,0.98))] p-4 sm:p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs uppercase tracking-[0.22em] text-white/42">Sort by</span>
+        {BEAT_SORT_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setBeatSort(option.id)}
+            className={`void-store-tag ${beatSort === option.id ? "is-active" : ""}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs uppercase tracking-[0.22em] text-white/42">Filter by BPM</span>
+        {BPM_FILTERS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setBpmFilter(option.id)}
+            className={`void-store-tag ${bpmFilter === option.id ? "is-active" : ""}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <span className="block text-xs uppercase tracking-[0.22em] text-white/42">Filter by Vibe</span>
+        {renderBeatTagFilters()}
+      </div>
+    </div>
+  );
+
+  const renderLicenseReferenceCard = () => (
+    <section className="rounded-[32px] border border-white/8 bg-[linear-gradient(180deg,rgba(17,17,19,0.96),rgba(8,8,10,0.98))] p-6 sm:p-7">
+      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1.1fr_1.1fr_auto]">
+        <div className="space-y-4">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Choose Your License</p>
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-semibold text-white">Basic Lease</h3>
+                <p className="mt-1 text-sm text-white/58">Perfect for creators</p>
+              </div>
+              <span className="rounded-full bg-[#ff8a63] px-4 py-2 text-sm font-semibold text-white">$20</span>
+            </div>
+            <ul className="mt-5 space-y-2 text-sm text-white/72">
+              {LICENSE_REFERENCE_ROWS.basic.map((row) => (
+                <li key={row} className="flex items-start gap-2">
+                  <Check size={16} className="mt-0.5 text-[#ff8a63]" />
+                  <span>{row}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-5 rounded-2xl border border-[#ff8a63]/18 bg-[#181111] p-4 text-sm text-white/72">
+              <p className="font-semibold text-white">Credit required</p>
+              <p className="mt-1">&quot;Prod. ejcertified&quot;</p>
+              <p className="mt-3 text-white/55">Best for TikTok, YouTube, streaming, and up to 2 artist or project uses.</p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Ownership Option</p>
+          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-2xl font-semibold text-white">Exclusive</h3>
+                <p className="mt-1 text-sm text-white/58">All rights, all use</p>
+              </div>
+              <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">$100</span>
+            </div>
+            <ul className="mt-5 space-y-2 text-sm text-white/72">
+              {LICENSE_REFERENCE_ROWS.exclusive.map((row) => (
+                <li key={row} className="flex items-start gap-2">
+                  <Check size={16} className="mt-0.5 text-[#ff8a63]" />
+                  <span>{row}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-5 rounded-2xl border border-white/8 bg-[#121216] p-4 text-sm text-white/72">
+              <p className="font-semibold text-white">No credit required</p>
+              <p className="mt-1">Own it completely and release it commercially without restrictions.</p>
+              <p className="mt-3 text-white/55">Best for full commercial drops, albums, and permanent use.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col justify-between gap-3 xl:items-end">
+          <button type="button" onClick={() => setActiveSection("terms")} className="void-store-pill-button">
+            Full Terms
+          </button>
+          <button type="button" onClick={() => setActiveSection("checkout")} className="void-dashboard-primary">
+            Learn More
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderArtistBioSection = () => (
+    <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">About the Producer</p>
+        <div className="mt-5 flex flex-col gap-5 md:flex-row md:items-center">
+          <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/8 bg-[linear-gradient(135deg,#141418,#09090b)] text-3xl font-semibold text-white shadow-[0_18px_42px_rgba(0,0,0,0.34)]">
+            EJ
+          </div>
+          <div>
+            <h2 className="text-3xl font-semibold text-white sm:text-4xl">EJCERTIFIED</h2>
+            <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/42">Houston, Texas</p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+              Authentic production built for artists, producers, and listeners who want a harder sound with real replay value.
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {socialLinks.tiktok ? (
+            <a href={socialLinks.tiktok} target="_blank" rel="noreferrer" className="void-dashboard-primary">
+              <Music2 size={16} />
+              Follow on TikTok
+            </a>
+          ) : null}
+          {socialLinks.instagram ? (
+            <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-pill-button">
+              <Instagram size={16} />
+              View Instagram
+            </a>
+          ) : null}
+          {socialLinks.youtube ? (
+            <a href={socialLinks.youtube} target="_blank" rel="noreferrer" className="void-store-pill-button">
+              <Youtube size={16} />
+              YouTube
+            </a>
+          ) : null}
+        </div>
+      </div>
+      <div className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Email List</p>
+        <h2 className="mt-4 text-2xl font-semibold text-white sm:text-3xl">Get beat drops straight to your inbox</h2>
+        <p className="mt-3 text-sm leading-7 text-white/62">Subscribe to get 10% off your first beat and hear about new drops first.</p>
+        <form onSubmit={(event) => void submitEmailSignup(event)} className="mt-6 space-y-3">
+          <input
+            value={emailSignup}
+            onChange={(event) => {
+              setEmailSignup(event.target.value);
+              if (emailSignupState !== "idle") setEmailSignupState("idle");
+            }}
+            type="email"
+            placeholder="Your email"
+            className="void-dashboard-input"
+          />
+          <button type="submit" className="void-dashboard-primary w-full justify-center">
+            {emailSignupState === "saving" ? "Saving..." : "Notify Me"}
+          </button>
+        </form>
+        <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/42">
+          {emailSignupState === "saved"
+            ? "Saved. You’ll be first to know."
+            : emailSignupState === "error"
+              ? "Preview saved locally. Add email_signups in Supabase to make it live."
+              : "First-time buyers can get VOID10."}
+        </p>
+      </div>
+    </section>
+  );
+
+  const renderTrendingBeatsSection = () => (
+    <section className="space-y-4">
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Trending This Week</p>
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-white sm:text-3xl">Most Popular Right Now</h2>
+            <p className="mt-2 max-w-2xl text-sm text-white/58">These beats are moving fast. Grab yours before they’re gone.</p>
+          </div>
+          <button type="button" onClick={() => setActiveSection("beats")} className="void-store-pill-button">
+            Shop Beats
+          </button>
+        </div>
+      </div>
+      {renderBeatGrid(trendingBeats)}
+    </section>
+  );
+
+  const renderBeatReviewSection = () => {
+    const stats = getBeatMarketStats(selectedBeat.id);
+    if (!stats.reviews.length) return null;
+
+    return (
+      <section className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(16,16,18,0.9),rgba(10,10,12,0.98))] p-5 sm:p-6">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Recent Reviews</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">{selectedBeat.title}</h2>
+          </div>
+          <div className="rounded-full bg-white/[0.05] px-4 py-2 text-sm text-white/72">
+            ⭐ {formatBeatRating(selectedBeat.id)} ({stats.reviews.length} reviews)
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {stats.reviews.slice(0, 3).map((review) => (
+            <div key={`${selectedBeat.id}-${review.author}-${review.createdAt}`} className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">{review.author}</p>
+                <span className="text-xs uppercase tracking-[0.18em] text-white/42">{review.rating.toFixed(1)}★</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-white/66">{review.comment}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   const toggleLike = (itemId: string) => {
     setLikedItems((current) => {
       const nextLiked = !current[itemId];
@@ -1871,6 +2234,7 @@ const Index = () => {
       openAuth("signin");
       return;
     }
+    setCheckoutReceipt(null);
     const license = licenseSelections[beat.id] ?? "Basic Lease";
     setCartItems((current) => {
       const nextItem = { beatId: beat.id, license, price: LICENSES[license], audioUrl: beat.purchaseUrl };
@@ -1886,6 +2250,7 @@ const Index = () => {
       openAuth("signin");
       return;
     }
+    setCheckoutReceipt(null);
     syncCheckoutFromProfile();
     setCartOpen(false);
     setActiveSection("checkout");
@@ -1898,19 +2263,25 @@ const Index = () => {
 
   const handleCheckout = () => {
     if (!cartItems.length) return;
+    const completedAt = new Date().toISOString();
     const purchasedItems: OrderItem[] = cartItems.map((item, index) => ({
       id: `${item.beatId}-${Date.now()}-${index}`,
       beatId: item.beatId,
       title: allBeats.find((beat) => beat.id === item.beatId)?.title ?? item.beatId,
       license: item.license,
       price: item.price,
-      purchasedAt: new Date().toISOString(),
+      licenseKey: createLicenseKey(),
+      expiresAt: getLicenseExpiry(item.license, completedAt),
+      purchasedAt: completedAt,
     }));
     setOrders((current) => [...purchasedItems, ...current]);
+    setCheckoutReceipt({
+      orders: purchasedItems,
+      completedAt,
+    });
     setCartItems([]);
     setCartOpen(false);
-    setActiveSection("profile");
-    setProfileTab("orders");
+    setActiveSection("checkout");
   };
 
   const handleStoreUploadFile = (section: StoreSectionName, field: "imageUrl" | "previewUrl", event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2116,6 +2487,77 @@ const Index = () => {
     }
   };
 
+  const submitEmailSignup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextEmail = emailSignup.trim().toLowerCase();
+    if (!nextEmail) return;
+
+    setEmailSignupState("saving");
+
+    if (typeof window !== "undefined") {
+      const storedEmails = normalizeStringArray(
+        (() => {
+          try {
+            return JSON.parse(window.localStorage.getItem(EMAIL_SIGNUPS_STORAGE_KEY) ?? "[]");
+          } catch {
+            return [];
+          }
+        })(),
+      );
+      if (!storedEmails.includes(nextEmail)) {
+        window.localStorage.setItem(EMAIL_SIGNUPS_STORAGE_KEY, JSON.stringify([...storedEmails, nextEmail]));
+      }
+    }
+
+    const { error } = await supabase.from("email_signups").upsert(
+      {
+        email: nextEmail,
+        source: "homepage",
+      },
+      { onConflict: "email" },
+    );
+
+    if (error) {
+      console.error("Failed to save email signup to Supabase.", error);
+      setEmailSignupState("error");
+      return;
+    }
+
+    setEmailSignup("");
+    setEmailSignupState("saved");
+  };
+
+  const downloadLicenseDocument = (order: OrderItem) => {
+    if (typeof window === "undefined") return;
+    const beat = allBeats.find((entry) => entry.id === order.beatId);
+    const licenseBody = [
+      "VOID License Confirmation",
+      "",
+      `License ID: ${order.licenseKey}`,
+      `Beat: ${order.title}`,
+      `Producer: ${beat?.artist ?? "EJCERTIFIED"}`,
+      `License Type: ${order.license}`,
+      `Purchased At: ${new Date(order.purchasedAt).toLocaleString()}`,
+      `Valid Until: ${order.expiresAt ? new Date(order.expiresAt).toLocaleDateString() : "No expiration"}`,
+      "",
+      order.license === "Basic Lease"
+        ? 'Credit required: "Prod. ejcertified"'
+        : "Credit optional on this exclusive purchase.",
+      "",
+      "This document is generated from the VOID storefront order record.",
+    ].join("\n");
+
+    const blob = new Blob([licenseBody], { type: "text/plain;charset=utf-8" });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = `${order.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${order.licenseKey}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(objectUrl);
+  };
+
   const renderBeatGrid = (items: Beat[]) => (
     <motion.div
       initial="hidden"
@@ -2155,13 +2597,15 @@ const Index = () => {
               <div className="void-dashboard-cover" />
             )}
             <div className="mt-2.5">
-              <p className="text-[21px] font-semibold text-white">{beat.title}</p>
-              <p className="mt-1 text-[17px] text-white/55">{beat.artist}</p>
-              <p className="mt-1.5 text-[16px] uppercase tracking-[0.18em] text-white/45">{beat.bpm} BPM</p>
+              <p className="text-[25px] font-semibold text-white">{beat.title}</p>
+              <p className="mt-1 text-[20px] text-white/55">{beat.artist}</p>
+              <p className="mt-2 text-[18px] uppercase tracking-[0.16em] text-white/45">
+                BPM: {beat.bpm} | Key: {beat.musicalKey ?? "Unlisted"}
+              </p>
               {beatCardTags.length > 0 ? (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {beatCardTags.map((tag) => (
-                    <span key={`${beat.id}-${tag}`} className="rounded-full bg-white/8 px-2.5 py-1 text-[15px] uppercase tracking-[0.18em] text-white/68">
+                    <span key={`${beat.id}-${tag}`} className="rounded-full bg-white/8 px-3 py-1.5 text-[16px] uppercase tracking-[0.16em] text-white/68">
                       {tag}
                     </span>
                   ))}
@@ -2295,7 +2739,7 @@ const Index = () => {
                     event.stopPropagation();
                     addToCart(beat);
                   }}
-                  className="inline-flex w-full items-center justify-center rounded-full bg-[#ff9f7e] px-3 py-2 text-[11px] font-semibold text-white"
+                  className="inline-flex w-full items-center justify-center rounded-full bg-[#ff9f7e] px-3 py-2.5 text-[13px] font-semibold text-white"
                 >
                   {user ? "Buy" : "Sign In To Buy"}
                 </button>
@@ -2335,7 +2779,7 @@ const Index = () => {
                 <p className="text-2xl font-semibold text-white">{beat.title}</p>
                 <p className="mt-1 text-sm text-white/55">{beat.artist}</p>
                 <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-                  {beat.bpm} BPM
+                  BPM: {beat.bpm} | Key: {beat.musicalKey ?? "Unlisted"}
                 </div>
               </div>
               <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">${price}</div>
@@ -2425,7 +2869,7 @@ const Index = () => {
           </div>
         ) : (
           <div className="rounded-[28px] bg-[linear-gradient(180deg,rgba(18,18,22,0.92),rgba(10,10,12,0.98))] px-6 py-12 text-center">
-            <p className="text-xl font-semibold text-white/40">
+            <p className="text-2xl font-semibold text-white/40 sm:text-3xl">
               Coming Soon
             </p>
           </div>
@@ -2626,11 +3070,89 @@ const Index = () => {
     <section className="space-y-6">
       <div className="void-store-pagehead void-store-pagehead-centered">
         <div>
-          <h1 className="void-store-page-title void-store-page-title-beats">Checkout</h1>
-          <p className="void-store-page-subtitle">by ejcertified</p>
+          <h1 className="void-store-page-title void-store-page-title-beats">Own Your Beat</h1>
+          <p className="void-store-page-subtitle">Secure Checkout</p>
         </div>
       </div>
-      {cartItems.length === 0 ? (
+      {checkoutReceipt ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
+          <div className="void-dashboard-panel p-6 sm:p-7">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Order Confirmed</p>
+            <h3 className="mt-3 text-3xl font-semibold text-white">Your beat is secured.</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
+              Thank you for supporting EJCERTIFIED. Your order is already saved to My Orders and ready to download.
+            </p>
+            <div className="mt-6 space-y-4">
+              {checkoutReceipt.orders.map((order) => {
+                const beat = allBeats.find((entry) => entry.id === order.beatId);
+                return (
+                  <div key={order.id} className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-white">{order.title}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/45">{order.license}</p>
+                      </div>
+                      <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">${order.price}</div>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-white/8 bg-[#121216] p-4">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">License ID</p>
+                        <p className="mt-2 text-sm font-semibold text-white">{order.licenseKey}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-[#121216] p-4">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Valid Until</p>
+                        <p className="mt-2 text-sm font-semibold text-white">
+                          {order.expiresAt ? new Date(order.expiresAt).toLocaleDateString() : "No expiration"}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-[#121216] p-4">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-white/42">Purchased</p>
+                        <p className="mt-2 text-sm font-semibold text-white">{new Date(order.purchasedAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {beat ? (
+                        <a href={beat.purchaseUrl} download className="void-dashboard-primary">
+                          Download Beat
+                        </a>
+                      ) : null}
+                      <button type="button" onClick={() => downloadLicenseDocument(order)} className="void-store-pill-button">
+                        Download License
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveSection("profile");
+                          setProfileTab("orders");
+                        }}
+                        className="void-store-pill-button"
+                      >
+                        View My Orders
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="void-dashboard-panel p-6 sm:p-7">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">What Happens Next</p>
+            <div className="mt-5 space-y-4 text-sm leading-7 text-white/68">
+              <p>Your order is saved to your account and can be reopened from My Orders any time.</p>
+              <p>Basic Leases keep the producer credit requirement. Exclusive purchases remove the beat from future sale.</p>
+              <p>Come back when you want to browse more beats, add favorites, or build a bigger cart.</p>
+            </div>
+            <div className="mt-6 flex flex-col gap-3">
+              <button type="button" onClick={() => setActiveSection("beats")} className="void-dashboard-primary justify-center">
+                Browse More Beats
+              </button>
+              <button type="button" onClick={() => setCheckoutReceipt(null)} className="void-store-pill-button">
+                Start New Order
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : cartItems.length === 0 ? (
         <div className="void-dashboard-panel p-6 sm:p-7">
           <h3 className="text-xl font-semibold text-white">Your checkout is empty</h3>
           <p className="mt-2 text-sm leading-6 text-white/60">Pick a beat and press Buy to open it here.</p>
@@ -2646,6 +3168,7 @@ const Index = () => {
           <div className="void-dashboard-panel p-6 sm:p-7">
             <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">Order Summary</p>
             <h3 className="mt-3 text-2xl font-semibold text-white">Review Your Order</h3>
+            <p className="mt-2 text-sm leading-6 text-white/58">Choose a payment option on the left, apply a promo code if you have one, and finish checkout securely.</p>
             <div className="mt-5 space-y-3">
               {cartItems.map((item, index) => {
                 const beat = allBeats.find((entry) => entry.id === item.beatId);
@@ -2661,6 +3184,12 @@ const Index = () => {
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-5 rounded-[22px] border border-[#ff8a63]/25 bg-[#181111] p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Upgrade Prompt</p>
+              <p className="mt-2 text-sm leading-6 text-white/66">
+                Want full ownership? Switch any beat above to Exclusive before checkout and we’ll remove it from future sale.
+              </p>
             </div>
             <div className="mt-5 space-y-2">
               <label className="block text-xs uppercase tracking-[0.18em] text-white/45">Promo Code</label>
@@ -2681,7 +3210,7 @@ const Index = () => {
               <span className="text-xl font-semibold">${cartTotal}</span>
             </div>
             <button type="button" onClick={handleCheckout} className="void-dashboard-primary mt-5 w-full justify-center">
-              Complete Purchase
+              Complete Secure Checkout
             </button>
           </div>
         </div>
@@ -2834,7 +3363,39 @@ const Index = () => {
                 </div>
                 <span>${order.price}</span>
               </div>
-              <p className="mt-2 text-xs text-white/45">{new Date(order.purchasedAt).toLocaleString()}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">License ID</p>
+                  <p className="mt-2 text-xs text-white/78">{order.licenseKey}</p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">Valid Until</p>
+                  <p className="mt-2 text-xs text-white/78">
+                    {order.expiresAt ? new Date(order.expiresAt).toLocaleDateString() : "No expiration"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">Purchased</p>
+                  <p className="mt-2 text-xs text-white/78">{new Date(order.purchasedAt).toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const matchedBeat = allBeats.find((beat) => beat.id === order.beatId);
+                    if (matchedBeat && typeof window !== "undefined") {
+                      window.open(matchedBeat.purchaseUrl, "_blank", "noopener,noreferrer");
+                    }
+                  }}
+                  className="void-store-pill-button"
+                >
+                  Download Beat
+                </button>
+                <button type="button" onClick={() => downloadLicenseDocument(order)} className="void-store-pill-button">
+                  Download License
+                </button>
+              </div>
             </div>
           )) : <p className="text-sm text-white/55">No purchases yet.</p>}
         </div>
@@ -3110,7 +3671,7 @@ const Index = () => {
                   <li>Commercial release is allowed up to 50,000 total streams across audio and video combined.</li>
                   <li>Up to 1,000 paid downloads or equivalent unit sales.</li>
                   <li>Term: 2 years from the date of purchase.</li>
-                  <li>The license is non-transferable and may only be used by the purchaser unless written permission is granted.</li>
+                  <li>The license is non-transferable and may be used for up to 2 artist or project uses by the purchaser unless written permission states otherwise.</li>
                 </ul>
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/4 p-4">
@@ -3296,8 +3857,9 @@ const Index = () => {
             </div>
             {renderBeatUploadManager()}
             {renderFeaturedBeatManager()}
-            {renderBeatTagFilters()}
+            {renderBeatDiscoveryControls()}
             {renderBeatGrid(filteredBeats)}
+            {renderBeatReviewSection()}
           </section>
         );
       }
@@ -3319,7 +3881,8 @@ const Index = () => {
             transition={{ delay: 0.12, duration: 0.45, ease: "easeOut" }}
             className="void-store-hero-copy"
           >
-            <h1 className="void-store-hero-title">Void Archive</h1>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">EJCERTIFIED PRESENTS</p>
+            <h1 className="void-store-hero-title">VOID ARCHIVE</h1>
             <div className="void-store-hero-grid">
               <div className="void-store-hero-column">
                 <div className="void-store-counter-card">
@@ -3353,12 +3916,13 @@ const Index = () => {
           </motion.div>
         </motion.section>
 
+        {renderLicenseReferenceCard()}
+
+        {renderArtistBioSection()}
+
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-white sm:text-3xl">Featured Beats</h2>
-            </div>
-            {renderBeatTagFilters("md:justify-end")}
+          <div>
+            <h2 className="text-2xl font-semibold text-white sm:text-3xl">Featured Beats</h2>
           </div>
           {renderBeatGrid(featuredHomeBeats)}
         </section>
