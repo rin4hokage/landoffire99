@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" fill="none">
+  <rect width="1200" height="1600" fill="#030303"/>
+  <ellipse cx="596" cy="380" rx="156" ry="210" fill="url(#halo)" opacity=".85"/>
+  <ellipse cx="600" cy="220" rx="54" ry="72" fill="#f3f3f3" opacity=".95"/>
+  <path d="M522 310c31-45 123-45 155 0l81 410c18 91-16 196-85 270-48 51-95 75-95 75s-42-24-88-75c-69-76-102-183-84-273l76-407Z" fill="url(#figure)" opacity=".96"/>
+  <path d="M257 1169c72-155 226-219 334-219 92 0 252 53 357 214-88 78-190 112-327 112-154 0-265-27-364-107Z" fill="url(#bottomFade)" opacity=".66"/>
+  <path d="M154 233c120-122 291-189 456-189 168 0 316 49 439 158" stroke="url(#ornament)" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 10" opacity=".7"/>
+  <path d="M110 289c164-91 308-130 488-130 201 0 356 53 497 149" stroke="url(#ornament)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 12" opacity=".65"/>
+  <path d="M291 186l44 76 44-76M859 192l38 68 38-68" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M935 330v730M998 412v496M220 419v518" stroke="#fff" stroke-opacity=".14" stroke-width="1.2" stroke-dasharray="4 14"/>
+  <circle cx="300" cy="1180" r="136" fill="url(#mist)" opacity=".55"/>
+  <circle cx="901" cy="1195" r="194" fill="url(#mist)" opacity=".35"/>
+  <path d="M194 1370c116-78 260-116 414-116 171 0 312 38 398 120" stroke="#fff" stroke-opacity=".12" stroke-width="1.3"/>
+  <text x="118" y="1490" fill="#ffffff" fill-opacity=".24" font-family="Arial, sans-serif" font-size="34" letter-spacing="18">PLACE YOUR IMAGE AS</text>
+  <text x="118" y="1538" fill="#ffffff" fill-opacity=".55" font-family="Arial, sans-serif" font-size="38" letter-spacing="8">public/void-hero.png</text>
+  <defs>
+    <radialGradient id="halo" cx="0" cy="0" r="1" gradientTransform="translate(596 380) rotate(90) scale(270 196)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset=".42" stop-color="#f2f2f2" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="figure" x1="600" y1="255" x2="600" y2="1065" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset=".42" stop-color="#f8f8f8" stop-opacity=".92"/>
+      <stop offset="1" stop-color="#d9d9d9" stop-opacity=".1"/>
+    </linearGradient>
+    <linearGradient id="bottomFade" x1="602" y1="950" x2="602" y2="1283" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f1f1f1" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ornament" x1="154" y1="188" x2="1049" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".24" stop-color="#fff"/>
+      <stop offset=".68" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="mist" cx="0" cy="0" r="1" gradientTransform="translate(0 0) scale(1)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

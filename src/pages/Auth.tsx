@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
+import { Apple, Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 
 const Auth = () => {
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, signInWithOAuth } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +29,7 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back, Commander.");
+        toast.success("Welcome back.");
       } else {
         if (!username.trim()) {
           toast.error("Username is required.");
@@ -54,28 +54,78 @@ const Auth = () => {
     }
   };
 
+  const handleOAuth = async (provider: "google" | "apple" | "twitter") => {
+    try {
+      await signInWithOAuth(provider);
+    } catch (error: any) {
+      toast.error(error.message || "Social sign-in is not available yet.");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="void-shell min-h-screen flex items-center justify-center p-4">
+      <div className="void-backdrop" aria-hidden="true">
+        <div className="void-orb void-orb-primary" />
+        <div className="void-orb void-orb-accent" />
+        <div className="void-grid" />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-[0.3em] text-foreground mb-2">
-            LAND OF FIRE
-          </h1>
-          <p className="text-sm font-mono text-muted-foreground">
-            AI Agent Command Center
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/8 shadow-[0_0_30px_rgba(64,201,162,0.18)]">
+            <span className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_18px_rgba(64,201,162,0.85)]" />
+          </div>
+          <h1 className="void-brandword text-4xl text-foreground mb-1">VOID</h1>
+          <p className="text-[0.68rem] uppercase tracking-[0.28em] text-muted-foreground">
+            by ejcertified
           </p>
           <div className="mt-4 flex items-center justify-center gap-2">
             <span className="status-dot status-active animate-pulse-status" />
-            <span className="text-xs font-mono text-muted-foreground">System Online</span>
+            <span className="text-xs text-muted-foreground">Store access</span>
           </div>
         </div>
 
         <div className="glass-card p-6 space-y-6">
+          {!isLogin && (
+            <div className="space-y-3">
+              <h2 className="text-center text-3xl font-semibold text-white">Continue with</h2>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth("twitter")}
+                  className="flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
+                >
+                  Continue with X
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth("apple")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
+                >
+                  <Apple size={16} />
+                  Continue with Apple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth("google")}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
+                >
+                  <span className="text-base font-bold text-[#4285F4]">G</span>
+                  Continue with Google
+                </button>
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xs text-white/45">Or</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+            </div>
+          )}
           <div className="flex gap-1 p-1 rounded-md bg-muted/20">
             <button
               type="button"
@@ -113,7 +163,7 @@ const Auth = () => {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="commander"
+                  placeholder="your name"
                   className="bg-background/50 border-border font-mono text-sm"
                   maxLength={30}
                 />
@@ -129,7 +179,7 @@ const Auth = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@landoffire.dev"
+                placeholder="you@example.com"
                 required
                 className="bg-background/50 border-border font-mono text-sm"
               />
@@ -145,7 +195,7 @@ const Auth = () => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="........"
                   required
                   minLength={6}
                   className="bg-background/50 border-border font-mono text-sm pr-10"
@@ -166,24 +216,24 @@ const Auth = () => {
               className="w-full font-mono text-xs tracking-wider"
             >
               {submitting ? (
-                <span className="animate-pulse">Authenticating...</span>
+                <span className="animate-pulse">{isLogin ? "Signing in..." : "Creating account..."}</span>
               ) : isLogin ? (
                 <>
                   <LogIn size={14} />
-                  Access Command Center
+                  Sign In
                 </>
               ) : (
                 <>
                   <UserPlus size={14} />
-                  Create Account
+                  Sign Up
                 </>
               )}
             </Button>
           </form>
         </div>
 
-        <p className="text-center text-xs font-mono text-muted-foreground mt-6">
-          Secure access only. All activity is logged.
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Sign in is only required when you are ready to purchase.
         </p>
       </motion.div>
     </div>

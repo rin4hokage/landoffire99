@@ -87,6 +87,60 @@ export type Database = {
           },
         ]
       }
+      storefront_beat_tags: {
+        Row: {
+          beat_id: string
+          created_at: string
+          id: string
+          tag: string
+        }
+        Insert: {
+          beat_id: string
+          created_at?: string
+          id?: string
+          tag: string
+        }
+        Update: {
+          beat_id?: string
+          created_at?: string
+          id?: string
+          tag?: string
+        }
+        Relationships: []
+      }
+      storefront_user_state: {
+        Row: {
+          created_at: string
+          favorites: string[]
+          orders: Json
+          playlist: string[]
+          profile: Json
+          promo_codes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          favorites?: string[]
+          orders?: Json
+          playlist?: string[]
+          profile?: Json
+          promo_codes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          favorites?: string[]
+          orders?: Json
+          playlist?: string[]
+          profile?: Json
+          promo_codes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
