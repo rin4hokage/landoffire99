@@ -122,6 +122,8 @@ export type Database = {
           id: string
           license_key: string
           license_type: string
+          polar_checkout_id: string | null
+          polar_order_id: string | null
           price: number
           user_id: string | null
         }
@@ -132,6 +134,8 @@ export type Database = {
           id?: string
           license_key: string
           license_type: string
+          polar_checkout_id?: string | null
+          polar_order_id?: string | null
           price: number
           user_id?: string | null
         }
@@ -142,6 +146,8 @@ export type Database = {
           id?: string
           license_key?: string
           license_type?: string
+          polar_checkout_id?: string | null
+          polar_order_id?: string | null
           price?: number
           user_id?: string | null
         }
@@ -165,6 +171,57 @@ export type Database = {
           email?: string
           id?: string
           source?: string
+        }
+        Relationships: []
+      }
+      storefront_contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          name: string
+          subject: string
+          submitted_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message: string
+          name: string
+          subject: string
+          submitted_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          subject?: string
+          submitted_at?: string
+        }
+        Relationships: []
+      }
+      storefront_site_config: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          updated_at?: string
         }
         Relationships: []
       }

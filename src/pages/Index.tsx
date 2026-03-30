@@ -15,6 +15,7 @@ import {
   ListMusic,
   LogOut,
   Mail,
+  MessageCircle,
   Music2,
   Percent,
   Pause,
@@ -25,16 +26,16 @@ import {
   Upload,
   UserCircle2,
   X,
-  Youtube,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 type SectionId = "home" | "beats" | "drumkits" | "loops" | "artwork" | "contact" | "socials" | "terms" | "signin" | "signup" | "profile" | "checkout";
-type LicenseName = "Basic Lease" | "Exclusive Lease";
+type LicenseName = "Basic Lease" | "Exclusive Lease" | "Loop Pack";
 type BeatSortOption = "newest" | "most-sold" | "highest-rated" | "bpm";
 type BpmFilterOption = "all" | "under-140" | "140-150" | "150-160" | "160-plus";
+type DownloadAsset = { label: string; url: string };
 
 type Beat = {
   id: string;
@@ -46,6 +47,7 @@ type Beat = {
   imageUrl: string;
   previewUrl: string;
   purchaseUrl: string;
+  exclusivePurchaseUrl?: string;
 };
 
 type BeatReview = {
@@ -69,6 +71,10 @@ type StoreItem = {
   accentClass: string;
   imageUrl?: string;
   previewUrl?: string;
+  bpm?: number;
+  tags?: string[];
+  price?: number;
+  downloadAssets?: DownloadAsset[];
 };
 
 type StoreUploadDraft = {
@@ -76,6 +82,15 @@ type StoreUploadDraft = {
   subtitle: string;
   imageUrl: string;
   previewUrl: string;
+};
+
+type BeatUploadDraft = {
+  title: string;
+  bpm: string;
+  tags: string;
+  imageUrl: string;
+  audioUrl: string;
+  zipUrl: string;
 };
 
 type ProfileTab = "edit" | "payment" | "favorites" | "playlist" | "orders" | "promotions";
@@ -121,12 +136,33 @@ type PaymentDetails = {
 type OrderItem = {
   id: string;
   beatId: string;
+  itemType?: "beat" | StoreSectionName;
+  subtitle?: string;
   title: string;
   license: LicenseName;
   price: number;
   licenseKey: string;
   expiresAt: string | null;
   purchasedAt: string;
+  imageUrl?: string;
+  downloadUrl?: string;
+  mp3Url?: string;
+  zipUrl?: string;
+  downloadAssets?: DownloadAsset[];
+};
+
+type CartItem = {
+  itemId: string;
+  itemType: "beat" | StoreSectionName;
+  title: string;
+  subtitle: string;
+  license: LicenseName;
+  price: number;
+  audioUrl?: string;
+  imageUrl?: string;
+  mp3Url?: string;
+  zipUrl?: string;
+  downloadAssets?: DownloadAsset[];
 };
 
 type CheckoutReceipt = {
@@ -134,11 +170,18 @@ type CheckoutReceipt = {
   completedAt: string;
 };
 
+type PendingPolarCheckout = {
+  checkoutId: string;
+  createdAt: string;
+  items: CartItem[];
+  userId: string;
+};
+
 type SocialLinks = {
   tiktok: string;
   instagram: string;
-  twitter: string;
-  youtube: string;
+  gmail: string;
+  discord: string;
 };
 
 type ContactForm = {
@@ -154,6 +197,10 @@ type ContactMessage = ContactForm & {
 };
 
 type StorefrontBeatTagRow = Tables<"storefront_beat_tags">;
+type StorefrontSiteConfigRow = Tables<"storefront_site_config">;
+type StorefrontContactMessageRow = Tables<"storefront_contact_messages">;
+type BeatReviewRow = Tables<"beat_reviews">;
+type BeatSaleRow = Tables<"beat_sales">;
 type ProfileRow = Tables<"profiles">;
 type StorefrontUserMetadata = {
   profile?: Partial<ProfileForm>;
@@ -185,14 +232,14 @@ const ORDERS_STORAGE_KEY = "void-orders";
 const PROMO_STORAGE_KEY = "void-promo";
 const STORE_ITEMS_STORAGE_KEY = "void-store-items";
 const SOCIAL_LINKS_STORAGE_KEY = "void-social-links";
-const CONTACT_MESSAGES_STORAGE_KEY = "void-contact-messages";
 const EMAIL_SIGNUPS_STORAGE_KEY = "void-email-signups";
 const PUBLISHED_STOREFRONT_STORAGE_KEY = "void-published-storefront";
+const PENDING_POLAR_CHECKOUT_STORAGE_KEY = "void-pending-polar-checkout";
 const STOREFRONT_CONFIG_PREFIX = "__void_storefront__:";
 const STOREFRONT_CONFIG_VERSION_MARKER = "::version::";
 const STOREFRONT_CONFIG_CHUNK_MARKER = "::chunk::";
 const STOREFRONT_CONFIG_COMPLETE_MARKER = "::complete::";
-const STOREFRONT_CONFIG_CHUNK_SIZE = 48000;
+const STOREFRONT_ASSETS_BUCKET = "storefront-assets";
 const STOREFRONT_CONFIG_KEYS = {
   uploadedBeats: `${STOREFRONT_CONFIG_PREFIX}uploaded-beats`,
   storeItems: `${STOREFRONT_CONFIG_PREFIX}store-items`,
@@ -200,8 +247,10 @@ const STOREFRONT_CONFIG_KEYS = {
   featuredStoreItemIds: `${STOREFRONT_CONFIG_PREFIX}featured-store-item-ids`,
   socialLinks: `${STOREFRONT_CONFIG_PREFIX}social-links`,
 } as const;
+const STOREFRONT_SITE_CONFIG_ROW_ID = "shared-storefront";
 const DEFAULT_ADMIN_PASSWORD = "admin";
 const FILE_ADMIN_PASSWORD = adminPasswordFile.trim();
+let storefrontAssetsBucketReady = false;
 const PAYMENT_OPTIONS: PaymentMethod[] = ["Bank", "Bank Card", "Cash App", "PayPal", "Apple Pay"];
 const LOCATION_SUGGESTIONS = [
   "Houston, Texas",
@@ -219,18 +268,19 @@ const LOCATION_SUGGESTIONS = [
 const LICENSES: Record<LicenseName, number> = {
   "Basic Lease": 20,
   "Exclusive Lease": 100,
+  "Loop Pack": 5,
 };
 const DEFAULT_FEATURED_BEAT_IDS = ["6th-angel", "fake-bih", "sosa"];
 const DEFAULT_FEATURED_STORE_ITEM_IDS: Record<StoreSectionName, string[]> = {
   drumkits: [],
-  loops: [],
+  loops: ["loops-vol-1", "loops-vol-2", "loops-vol-3"],
   artwork: [],
 };
 const DEFAULT_SOCIAL_LINKS: SocialLinks = {
   tiktok: "https://www.tiktok.com/@ejcertified_",
   instagram: "https://www.instagram.com/ejcertified_/",
-  twitter: "",
-  youtube: "",
+  gmail: "mailto:rin4hokage@gmail.com",
+  discord: "",
 };
 const LICENSE_REFERENCE_ROWS = {
   basic: [
@@ -301,6 +351,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("Decided to post my graphic design work on pinterest maybe I can find my target audience here lol if you like my work please check out my IG @Ukihanee.jpg"),
     previewUrl: "/audio/vvv-146bpm-ejcertified.mp3",
     purchaseUrl: "/audio/vvv-146bpm-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/vvv%20146bpm%20ejcertified.zip",
   },
   {
     id: "fake-bih",
@@ -312,6 +363,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("disturbance.jpg"),
     previewUrl: "/audio/fake-bih-147-ejcertified.mp3",
     purchaseUrl: "/audio/fake-bih-147-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/fake%20bih%20147%20ejcertified.zip",
   },
   {
     id: "brunson-is-trash-omg",
@@ -323,6 +375,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("download (1).jpg"),
     previewUrl: "/audio/brunson-is-trash-omg-148-ejcertified.mp3",
     purchaseUrl: "/audio/brunson-is-trash-omg-148-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/brunson%20is%20trash%20omg%20148%20ejcertified.zip",
   },
   {
     id: "die-4-u",
@@ -334,6 +387,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("download (2).jpg"),
     previewUrl: "/audio/die-4-u-140-ejcertified.mp3",
     purchaseUrl: "/audio/die-4-u-140-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/die%204%20u%20140%20ejcertified.zip",
   },
   {
     id: "same-ole-shii",
@@ -345,6 +399,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("download.jpg"),
     previewUrl: "/audio/same-ole-shii-147-ejcertified.mp3",
     purchaseUrl: "/audio/same-ole-shii-147-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/same%20ole%20shii%20147%20ejcertified.zip",
   },
   {
     id: "sosa",
@@ -356,6 +411,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("Ken Carson.jpg"),
     previewUrl: "/audio/sosa-144-ejcertified.mp3",
     purchaseUrl: "/audio/sosa-144-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/sosa%20144%20ejcertified.zip",
   },
   {
     id: "just-lost-100",
@@ -367,6 +423,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("Large Vertical Chinese Landscape Painting, Giclee Print, Pavilion Fairyland Art, Handmade Silk Hanging Scroll, Shan Shui Wall Hanging - Etsy.jpg"),
     previewUrl: "/audio/just-lost-100-149bpm-ejcertified.mp3",
     purchaseUrl: "/audio/just-lost-100-149bpm-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/just%20lost%20%24100%20149bpm%20ejcertified.zip",
   },
   {
     id: "tats-on-my-arm",
@@ -378,6 +435,7 @@ const beats: Beat[] = [
     imageUrl: publicAsset("࿂ ໋᳝֘·⋆ 𝐐𝐈𝐒𝐇𝐎𝐎 ☆.jpg"),
     previewUrl: "/audio/tats-on-my-arm-152bpm-ejcertified.mp3",
     purchaseUrl: "/audio/tats-on-my-arm-152bpm-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/tats%20on%20my%20arm%20152bpm%20ejcertified.zip",
   },
   {
     id: "6th-angel",
@@ -389,6 +447,55 @@ const beats: Beat[] = [
     imageUrl: publicAsset("𝗬𝘂𝗻𝗷𝗶𝗻.jpg"),
     previewUrl: "/audio/6th-angel-149-ejcertified.mp3",
     purchaseUrl: "/audio/6th-angel-149-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/6th%20angel%20149%20ejcertified.zip",
+  },
+  {
+    id: "98",
+    title: "98",
+    artist: "EJCERTIFIED",
+    bpm: 146,
+    musicalKey: "Unlisted",
+    tags: ["Untagged"],
+    imageUrl: publicFolderAsset("iamges", "download (11).jpg"),
+    previewUrl: "/audio/98-146bpm-ejcertified.mp3",
+    purchaseUrl: "/audio/98-146bpm-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/98%20146bpm%20ejcertified.zip",
+  },
+  {
+    id: "death-notes",
+    title: "DEATH NOTES",
+    artist: "EJCERTIFIED",
+    bpm: 140,
+    musicalKey: "Unlisted",
+    tags: ["Untagged"],
+    imageUrl: publicFolderAsset("covers", "cover-death-notes.jpg"),
+    previewUrl: "/audio/death-notes-140bpm-ejcertified.mp3",
+    purchaseUrl: "/audio/death-notes-140bpm-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/death-notes-140bpm-ejcertified.zip",
+  },
+  {
+    id: "zyn",
+    title: "ZYN",
+    artist: "EJCERTIFIED",
+    bpm: 148,
+    musicalKey: "Unlisted",
+    tags: ["Bleood", "Dark", "EJCERTIFIED"],
+    imageUrl: publicFolderAsset("covers", "cover-zyn.jpg"),
+    previewUrl: "/audio/zyn-148-ejcertified.mp3",
+    purchaseUrl: "/audio/zyn-148-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/zyn-148-ejcertified.zip",
+  },
+  {
+    id: "botched",
+    title: "BOTCHED",
+    artist: "EJCERTIFIED",
+    bpm: 149,
+    musicalKey: "Unlisted",
+    tags: ["EJCERTIFIED", "Dark", "Underground"],
+    imageUrl: publicFolderAsset("covers", "cover-botched.jpg"),
+    previewUrl: "/audio/botched-149-ejcertified.mp3",
+    purchaseUrl: "/audio/botched-149-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/botched%20149%20ejcertified.zip",
   },
 ];
 
@@ -422,6 +529,15 @@ const createEmptyStoreUploadDraft = (): StoreUploadDraft => ({
   subtitle: "",
   imageUrl: "",
   previewUrl: "",
+});
+
+const createEmptyBeatUploadDraft = (): BeatUploadDraft => ({
+  title: "",
+  bpm: "",
+  tags: "",
+  imageUrl: "",
+  audioUrl: "",
+  zipUrl: "",
 });
 
 const extractPaymentDetails = (profile: ProfileForm): PaymentDetails => ({
@@ -484,10 +600,48 @@ const createLicenseKey = () =>
     .slice(2, 5)
     .toUpperCase()}`;
 const getLicenseExpiry = (license: LicenseName, purchasedAt: string) => {
-  if (license === "Exclusive Lease") return null;
+  if (license === "Exclusive Lease" || license === "Loop Pack") return null;
   const expiry = new Date(purchasedAt);
   expiry.setFullYear(expiry.getFullYear() + 2);
   return expiry.toISOString();
+};
+const getBeatDownloadUrl = (beat: Beat, license: LicenseName) =>
+  license === "Exclusive Lease" ? beat.exclusivePurchaseUrl ?? beat.purchaseUrl : beat.purchaseUrl;
+const getBeatDownloadAssets = (beat: Beat, license: LicenseName) => {
+  const assets: { label: string; url: string }[] = [];
+  if (beat.purchaseUrl) {
+    assets.push({
+      label: license === "Exclusive Lease" && beat.exclusivePurchaseUrl ? "Download MP3" : "Download Beat",
+      url: beat.purchaseUrl,
+    });
+  }
+  if (license === "Exclusive Lease" && beat.exclusivePurchaseUrl) {
+    assets.push({ label: "Download ZIP", url: beat.exclusivePurchaseUrl });
+  }
+  return assets.filter((asset, index, source) => source.findIndex((entry) => entry.url === asset.url) === index);
+};
+const getOrderDownloadAssets = (order: OrderItem, beat?: Beat) => {
+  if (order.downloadAssets && order.downloadAssets.length > 0) {
+    return order.downloadAssets.filter(
+      (asset, index, source) => source.findIndex((entry) => entry.url === asset.url) === index,
+    );
+  }
+
+  const assets: { label: string; url: string }[] = [];
+  const mp3Url = order.mp3Url ?? order.downloadUrl ?? beat?.purchaseUrl;
+  const zipUrl = order.zipUrl ?? (order.license === "Exclusive Lease" ? beat?.exclusivePurchaseUrl : undefined);
+
+  if (mp3Url) {
+    assets.push({
+      label: zipUrl ? "Download MP3" : "Download Beat",
+      url: mp3Url,
+    });
+  }
+  if (zipUrl) {
+    assets.push({ label: "Download ZIP", url: zipUrl });
+  }
+
+  return assets.filter((asset, index, source) => source.findIndex((entry) => entry.url === asset.url) === index);
 };
 const normalizeStringArray = (value: unknown) =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
@@ -511,12 +665,22 @@ const normalizeOrders = (value: unknown): OrderItem[] =>
           return [];
         }
 
-        const license = source.license === "Exclusive Lease" ? "Exclusive Lease" : "Basic Lease";
+        const license: LicenseName =
+          source.license === "Exclusive Lease"
+            ? "Exclusive Lease"
+            : source.license === "Loop Pack"
+              ? "Loop Pack"
+              : "Basic Lease";
 
         return [
           {
             id: source.id,
             beatId: source.beatId,
+            itemType:
+              source.itemType === "loops" || source.itemType === "drumkits" || source.itemType === "artwork"
+                ? source.itemType
+                : "beat",
+            subtitle: typeof source.subtitle === "string" ? source.subtitle : undefined,
             title: source.title,
             license,
             price: source.price,
@@ -526,6 +690,20 @@ const normalizeOrders = (value: unknown): OrderItem[] =>
                 ? source.expiresAt ?? getLicenseExpiry(license, source.purchasedAt)
                 : getLicenseExpiry(license, source.purchasedAt),
             purchasedAt: source.purchasedAt,
+            imageUrl: typeof source.imageUrl === "string" ? source.imageUrl : undefined,
+            downloadUrl: typeof source.downloadUrl === "string" ? source.downloadUrl : undefined,
+            mp3Url: typeof source.mp3Url === "string" ? source.mp3Url : undefined,
+            zipUrl: typeof source.zipUrl === "string" ? source.zipUrl : undefined,
+            downloadAssets: Array.isArray(source.downloadAssets)
+              ? source.downloadAssets.flatMap((asset) =>
+                  typeof asset === "object" &&
+                  asset !== null &&
+                  typeof (asset as DownloadAsset).label === "string" &&
+                  typeof (asset as DownloadAsset).url === "string"
+                    ? [{ label: (asset as DownloadAsset).label, url: (asset as DownloadAsset).url }]
+                    : [],
+                )
+              : undefined,
           },
         ];
       })
@@ -607,35 +785,8 @@ const normalizeSocialLinks = (value: unknown): SocialLinks => {
   return {
     tiktok: typeof source.tiktok === "string" ? source.tiktok : DEFAULT_SOCIAL_LINKS.tiktok,
     instagram: typeof source.instagram === "string" ? source.instagram : DEFAULT_SOCIAL_LINKS.instagram,
-    twitter: typeof source.twitter === "string" ? source.twitter : DEFAULT_SOCIAL_LINKS.twitter,
-    youtube: typeof source.youtube === "string" ? source.youtube : DEFAULT_SOCIAL_LINKS.youtube,
-  };
-};
-
-const splitStorefrontConfigValue = (value: string) => {
-  if (!value.length) return [""];
-
-  const chunks: string[] = [];
-  for (let index = 0; index < value.length; index += STOREFRONT_CONFIG_CHUNK_SIZE) {
-    chunks.push(value.slice(index, index + STOREFRONT_CONFIG_CHUNK_SIZE));
-  }
-
-  return chunks;
-};
-
-const buildStorefrontConfigRows = (key: string, value: string) => {
-  const version = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const chunkRows = splitStorefrontConfigValue(value).map((chunk, index) => ({
-    beat_id: `${key}${STOREFRONT_CONFIG_VERSION_MARKER}${version}${STOREFRONT_CONFIG_CHUNK_MARKER}${index.toString().padStart(4, "0")}`,
-    tag: chunk,
-  }));
-
-  return {
-    chunkRows,
-    completeRow: {
-      beat_id: `${key}${STOREFRONT_CONFIG_VERSION_MARKER}${version}${STOREFRONT_CONFIG_COMPLETE_MARKER}`,
-      tag: String(chunkRows.length),
-    },
+    gmail: typeof source.gmail === "string" ? source.gmail : DEFAULT_SOCIAL_LINKS.gmail,
+    discord: typeof source.discord === "string" ? source.discord : DEFAULT_SOCIAL_LINKS.discord,
   };
 };
 
@@ -741,6 +892,161 @@ const normalizeStorefrontSiteConfig = (value: unknown): StorefrontSiteConfig => 
   };
 };
 
+const finalizeStorefrontSiteConfig = (value: unknown): StorefrontSiteConfig => {
+  const normalized = normalizeStorefrontSiteConfig(value);
+
+  return {
+    uploadedBeats: normalized.uploadedBeats,
+    storeItems: mergeDefaultStoreItems(normalized.storeItems),
+    featuredBeatIds: normalized.featuredBeatIds.length > 0 ? normalized.featuredBeatIds : [...DEFAULT_FEATURED_BEAT_IDS],
+    featuredStoreItemIds: {
+      drumkits: normalized.featuredStoreItemIds.drumkits,
+      loops:
+        normalized.featuredStoreItemIds.loops.length > 0
+          ? normalized.featuredStoreItemIds.loops
+          : [...DEFAULT_FEATURED_STORE_ITEM_IDS.loops],
+      artwork: normalized.featuredStoreItemIds.artwork,
+    },
+    socialLinks: normalized.socialLinks,
+  };
+};
+
+const createDefaultStorefrontSiteConfig = (): StorefrontSiteConfig =>
+  finalizeStorefrontSiteConfig({
+    uploadedBeats: [],
+    storeItems: [],
+    featuredBeatIds: DEFAULT_FEATURED_BEAT_IDS,
+    featuredStoreItemIds: DEFAULT_FEATURED_STORE_ITEM_IDS,
+    socialLinks: DEFAULT_SOCIAL_LINKS,
+  });
+
+const mapContactMessageRow = (row: StorefrontContactMessageRow): ContactMessage => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  subject: row.subject,
+  message: row.message,
+  submittedAt: row.submitted_at,
+});
+
+const normalizeContactMessageRows = (rows: StorefrontContactMessageRow[] | null | undefined): ContactMessage[] =>
+  (rows ?? [])
+    .map(mapContactMessageRow)
+    .sort((left, right) => new Date(right.submittedAt).getTime() - new Date(left.submittedAt).getTime());
+
+const isDataUrl = (value?: string | null) => typeof value === "string" && value.startsWith("data:");
+
+const getDataUrlMimeType = (value: string) => {
+  const match = value.match(/^data:([^;,]+)[;,]/i);
+  return match?.[1] ?? "";
+};
+
+const getExtensionForMimeType = (mimeType: string, fallback: string) => {
+  const normalized = mimeType.toLowerCase();
+  if (normalized === "image/jpeg" || normalized === "image/jpg") return "jpg";
+  if (normalized === "image/png") return "png";
+  if (normalized === "image/webp") return "webp";
+  if (normalized === "image/gif") return "gif";
+  if (normalized === "audio/mpeg" || normalized === "audio/mp3") return "mp3";
+  if (normalized === "audio/wav" || normalized === "audio/x-wav") return "wav";
+  if (normalized === "audio/ogg") return "ogg";
+  if (normalized === "application/zip" || normalized === "application/x-zip-compressed") return "zip";
+  return fallback;
+};
+
+const ensureStorefrontAssetsBucket = async () => {
+  if (storefrontAssetsBucketReady) return true;
+
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (!listError && buckets?.some((bucket) => bucket.name === STOREFRONT_ASSETS_BUCKET)) {
+    storefrontAssetsBucketReady = true;
+    return true;
+  }
+
+  const { error: createError } = await supabase.storage.createBucket(STOREFRONT_ASSETS_BUCKET, {
+    public: true,
+  });
+
+  if (createError && !/already exists/i.test(createError.message ?? "")) {
+    console.error("Failed to create storefront assets bucket.", createError);
+    return false;
+  }
+
+  storefrontAssetsBucketReady = true;
+  return true;
+};
+
+const uploadDataUrlToStorefrontAsset = async (dataUrl: string, assetPathBase: string, fallbackExtension: string) => {
+  if (!isDataUrl(dataUrl)) return dataUrl;
+
+  const bucketReady = await ensureStorefrontAssetsBucket();
+  if (!bucketReady) {
+    console.warn("Storefront assets bucket is unavailable. Falling back to inline asset persistence.");
+    return dataUrl;
+  }
+
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const mimeType = blob.type || getDataUrlMimeType(dataUrl);
+    const extension = getExtensionForMimeType(mimeType, fallbackExtension);
+    const assetPath = `${assetPathBase}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage.from(STOREFRONT_ASSETS_BUCKET).upload(assetPath, blob, {
+      upsert: true,
+      contentType: mimeType || undefined,
+    });
+
+    if (uploadError) {
+      console.warn("Failed to upload storefront asset. Falling back to inline asset persistence.", uploadError);
+      return dataUrl;
+    }
+
+    const { data } = supabase.storage.from(STOREFRONT_ASSETS_BUCKET).getPublicUrl(assetPath);
+    return data.publicUrl;
+  } catch (error) {
+    console.warn("Failed to materialize storefront asset. Falling back to inline asset persistence.", error);
+    return dataUrl;
+  }
+};
+
+const materializeBeatAssets = async (beat: Beat) => {
+  const nextImageUrl = beat.imageUrl
+    ? await uploadDataUrlToStorefrontAsset(beat.imageUrl, `beats/${beat.id}/cover`, "jpg")
+    : beat.imageUrl;
+  const nextPreviewUrl = await uploadDataUrlToStorefrontAsset(beat.previewUrl, `beats/${beat.id}/preview`, "mp3");
+  const nextPurchaseUrl =
+    !beat.purchaseUrl || beat.purchaseUrl === beat.previewUrl
+      ? nextPreviewUrl
+      : await uploadDataUrlToStorefrontAsset(beat.purchaseUrl, `beats/${beat.id}/purchase`, "mp3");
+  const nextExclusivePurchaseUrl = beat.exclusivePurchaseUrl
+    ? await uploadDataUrlToStorefrontAsset(beat.exclusivePurchaseUrl, `beats/${beat.id}/exclusive`, "zip")
+    : undefined;
+
+  return {
+    ...beat,
+    imageUrl: nextImageUrl,
+    previewUrl: nextPreviewUrl,
+    purchaseUrl: nextPurchaseUrl,
+    exclusivePurchaseUrl: nextExclusivePurchaseUrl,
+  };
+};
+
+const materializeStoreItemAssets = async (item: StoreItem) => {
+  const nextImageUrl = item.imageUrl
+    ? await uploadDataUrlToStorefrontAsset(item.imageUrl, `${item.section}/${item.id}/cover`, "jpg")
+    : item.imageUrl;
+  const nextPreviewUrl = item.previewUrl
+    ? await uploadDataUrlToStorefrontAsset(item.previewUrl, `${item.section}/${item.id}/preview`, "mp3")
+    : item.previewUrl;
+
+  return {
+    ...item,
+    imageUrl: nextImageUrl,
+    previewUrl: nextPreviewUrl,
+  };
+};
+
 const normalizeFeaturedStoreItems = (value: unknown): Record<StoreSectionName, string[]> => {
   const source =
     typeof value === "object" && value !== null && !Array.isArray(value)
@@ -752,6 +1058,16 @@ const normalizeFeaturedStoreItems = (value: unknown): Record<StoreSectionName, s
     loops: normalizeStringArray(source.loops),
     artwork: normalizeStringArray(source.artwork),
   };
+};
+
+const mergeDefaultStoreItems = (items: StoreItem[]) => {
+  const merged = [...items];
+  defaultStoreItems.forEach((item) => {
+    if (!merged.some((entry) => entry.id === item.id)) {
+      merged.push(item);
+    }
+  });
+  return merged;
 };
 
 const getStorefrontMetadata = (value: unknown): StorefrontUserMetadata | null => {
@@ -819,14 +1135,125 @@ const resizeProfilePhoto = (file: File) =>
     reader.readAsDataURL(file);
   });
 
-const defaultStoreItems: StoreItem[] = [];
+const defaultStoreItems: StoreItem[] = [
+  {
+    id: "loops-vol-1",
+    title: "Loops Vol 1",
+    subtitle: "dont fw diggs • i got 99 block • onlyfans",
+    section: "loops",
+    accentClass: "void-dashboard-cover",
+    imageUrl: "/covers/loops-vol-1.jpg",
+    previewUrl: "/audio/loops/loops-vol-1-dont-fw-diggs.mp3",
+    bpm: 150,
+    tags: ["3 LOOP PACK", "VOL 1"],
+    price: 5,
+    downloadAssets: [
+      { label: "dont fw diggs", url: "/audio/loops/loops-vol-1-dont-fw-diggs.mp3" },
+      { label: "i got 99 block", url: "/audio/loops/loops-vol-1-i-got-99-block.mp3" },
+      { label: "onlyfans", url: "/audio/loops/loops-vol-1-onlyfans.mp3" },
+    ],
+  },
+  {
+    id: "loops-vol-2",
+    title: "Loops Vol 2",
+    subtitle: "reboot van • my life ended • my eyes is gone",
+    section: "loops",
+    accentClass: "void-dashboard-cover",
+    imageUrl: "/covers/loops-vol-2.jpg",
+    previewUrl: "/audio/loops/loops-vol-2-reboot-van.mp3",
+    bpm: 144,
+    tags: ["3 LOOP PACK", "VOL 2"],
+    price: 5,
+    downloadAssets: [
+      { label: "reboot van", url: "/audio/loops/loops-vol-2-reboot-van.mp3" },
+      { label: "my life ended", url: "/audio/loops/loops-vol-2-my-life-ended.mp3" },
+      { label: "my eyes is gone", url: "/audio/loops/loops-vol-2-my-eyes-is-gone.mp3" },
+    ],
+  },
+  {
+    id: "loops-vol-3",
+    title: "Loops Vol 3",
+    subtitle: "hof pogo • 4 my king • dole",
+    section: "loops",
+    accentClass: "void-dashboard-cover",
+    imageUrl: "/covers/loops-vol-3.jpg",
+    previewUrl: "/audio/loops/loops-vol-3-hof-pogo.mp3",
+    bpm: 147,
+    tags: ["3 LOOP PACK", "VOL 3"],
+    price: 5,
+    downloadAssets: [
+      { label: "hof pogo", url: "/audio/loops/loops-vol-3-hof-pogo.mp3" },
+      { label: "4 my king", url: "/audio/loops/loops-vol-3-4-my-king.mp3" },
+      { label: "dole", url: "/audio/loops/loops-vol-3-dole.mp3" },
+    ],
+  },
+  {
+    id: "loops-vol-4",
+    title: "Loops Vol 4",
+    subtitle: "dirk • i just 3x • fake bih",
+    section: "loops",
+    accentClass: "void-dashboard-cover",
+    imageUrl: "/covers/loops-vol-4.jpg",
+    previewUrl: "/audio/loops/loops-vol-4-dirk.mp3",
+    bpm: 142,
+    tags: ["3 LOOP PACK", "VOL 4"],
+    price: 5,
+    downloadAssets: [
+      { label: "dirk", url: "/audio/loops/loops-vol-4-dirk.mp3" },
+      { label: "i just 3x", url: "/audio/loops/loops-vol-4-i-just-3x.mp3" },
+      { label: "fake bih", url: "/audio/loops/loops-vol-4-fake-bih.mp3" },
+    ],
+  },
+];
+
+const STORE_SECTION_CONFIG: Record<
+  StoreSectionName,
+  {
+    eyebrow: string;
+    subtitle: string;
+    description: string;
+    bannerImage: string;
+    emptyTitle: string;
+    emptyCopy: string;
+  }
+> = {
+  drumkits: {
+    eyebrow: "Percussion Vault",
+    subtitle: "Curated kits, one-shots, and hard textures built for dark melodic records.",
+    description:
+      "This shelf is ready for custom drumkit drops. Upload kits from admin mode and feature the strongest ones on the front page when they are live.",
+    bannerImage: "/covers/drumkits-banner.jpg",
+    emptyTitle: "Drumkits are being loaded into the vault.",
+    emptyCopy: "Use admin mode to upload your first kit and it will appear here instantly.",
+  },
+  loops: {
+    eyebrow: "Loop Shelf",
+    subtitle: "Playable loop packs with instant previews and lightweight pricing.",
+    description:
+      "Preview every pack, queue favorites for later, and grab quick melodic ideas without leaving the storefront flow.",
+    bannerImage: "/covers/loops-banner.jpg",
+    emptyTitle: "No loop packs are featured yet.",
+    emptyCopy: "Upload loop packs or choose featured ones from admin mode to populate this section.",
+  },
+  artwork: {
+    eyebrow: "Visual Archive",
+    subtitle: "Cover art, posters, and promo assets built to match the VOID world.",
+    description:
+      "Community art drops now sit alongside the music catalog so fans and artists can collect visuals without leaving the store.",
+    bannerImage: "/covers/artwork-banner.jpg",
+    emptyTitle: "No community art is featured yet.",
+    emptyCopy: "Add artwork from admin mode to turn this into a downloadable visual shelf.",
+  },
+};
+
+const COMMUNITY_ART_LABEL = "Community Art";
 
 const mainLinks: { id: SectionId; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "beats", label: "Beats", icon: Music2 },
   { id: "drumkits", label: "Drumkits", icon: ShoppingBag },
   { id: "loops", label: "Loops", icon: Heart },
-  { id: "artwork", label: "Artwork", icon: Image },
+  { id: "artwork", label: COMMUNITY_ART_LABEL, icon: Image },
   { id: "contact", label: "Contact", icon: Mail },
   { id: "socials", label: "Socials", icon: Instagram },
   { id: "terms", label: "Terms", icon: BadgeInfo },
@@ -923,6 +1350,7 @@ const StoreSection = ({
   onUploadDraftChange,
   onUploadFile,
   onSubmitUpload,
+  onAddToCart,
 }: {
   title: string;
   items: StoreItem[];
@@ -942,12 +1370,30 @@ const StoreSection = ({
   onUploadDraftChange: (field: keyof StoreUploadDraft, value: string) => void;
   onUploadFile: (field: "imageUrl" | "previewUrl", event: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmitUpload: () => void;
-}) => (
+  onAddToCart: (item: StoreItem) => void;
+}) => {
+  const sectionConfig = STORE_SECTION_CONFIG[section];
+  const showSimpleHeader = section === "drumkits" || section === "artwork";
+  const visibleItems = section === "artwork" ? [] : items;
+
+  return (
   <div className="space-y-4">
-    <div className="void-store-pagehead void-store-pagehead-centered void-store-pagehead-floating">
-      <div>
-        <h1 className="void-store-page-title void-store-page-title-beats">{title}</h1>
-        <p className="void-store-page-subtitle">by ejcertified</p>
+    <div
+      className={showSimpleHeader ? "void-store-pagehead void-store-pagehead-centered void-store-pagehead-floating" : "void-store-pagehead void-store-pagehead-banner"}
+      style={showSimpleHeader ? undefined : { backgroundImage: `url(${sectionConfig.bannerImage})` }}
+    >
+      <div className={showSimpleHeader ? undefined : "void-store-pagehead-content"}>
+        {!showSimpleHeader ? (
+          <>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">{sectionConfig.eyebrow}</p>
+            <h1 className="void-store-page-title void-store-page-title-beats">{title}</h1>
+            <p className="void-store-page-subtitle">by ejcertified</p>
+            <p className="void-store-page-copy">{sectionConfig.subtitle}</p>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-white/58 sm:text-base">{sectionConfig.description}</p>
+          </>
+        ) : (
+          <h1 className="void-store-page-title void-store-page-title-beats">{title}</h1>
+        )}
       </div>
       {adminUnlocked ? (
         <div className="void-store-page-actions flex-wrap justify-center">
@@ -1046,11 +1492,23 @@ const StoreSection = ({
         )}
       </div>
     ) : null}
-    {items.length === 0 ? (
-      <div className="void-dashboard-panel p-6 text-sm text-white/60">No {title.toLowerCase()} uploaded yet.</div>
+    {visibleItems.length === 0 ? (
+      <div className="void-dashboard-panel p-6 sm:p-7">
+        {section === "artwork" ? (
+          <div className="text-center">
+            <p className="text-2xl font-semibold text-white/40 sm:text-3xl">Coming Soon</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">{title}</p>
+            <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{sectionConfig.emptyTitle}</h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/64 sm:text-base">{sectionConfig.emptyCopy}</p>
+          </>
+        )}
+      </div>
     ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <div key={item.id} className="void-dashboard-card void-product-card">
             {item.imageUrl ? (
               <div className="void-product-media overflow-hidden rounded-[14px]">
@@ -1075,10 +1533,15 @@ const StoreSection = ({
               ) : null}
             </div>
             <div className="mt-3 flex flex-col gap-2">
-              <select className="void-dashboard-select w-full min-w-0">
-                <option>Basic Lease - $20</option>
-                <option>Exclusive Lease - $100</option>
-              </select>
+              {item.tags?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {item.tags.map((tag) => (
+                    <span key={`${item.id}-${tag}`} className="rounded-full bg-white/8 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white/58">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -1097,7 +1560,21 @@ const StoreSection = ({
                     <ListMusic size={14} />
                     Up Next
                   </button>
-                ) : null}
+                ) : (
+                  <div className="void-product-pill justify-center bg-white/6 text-white/46">
+                    {item.downloadAssets?.length ? `${item.downloadAssets.length} files` : "Digital drop"}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+                <span className="text-[22px] font-semibold text-white">${item.price ?? 5}</span>
+                <button
+                  type="button"
+                  onClick={() => onAddToCart(item)}
+                  className="void-dashboard-primary w-full justify-center"
+                >
+                  Add To Cart
+                </button>
               </div>
             </div>
           </div>
@@ -1105,11 +1582,12 @@ const StoreSection = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previewTimerRef = useRef<number | null>(null);
   const queueItemsRef = useRef<StoreItem[]>([]);
@@ -1143,7 +1621,7 @@ const Index = () => {
     "art-2": 0,
   });
   const [likedItems, setLikedItems] = useState<Record<string, boolean>>({});
-  const [cartItems, setCartItems] = useState<{ beatId: string; license: LicenseName; price: number; audioUrl: string }[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [adminUnlocked, setAdminUnlocked] = useState(false);
@@ -1173,11 +1651,15 @@ const Index = () => {
   const [emailSignup, setEmailSignup] = useState("");
   const [emailSignupState, setEmailSignupState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [contactSubmitState, setContactSubmitState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [queueItems, setQueueItems] = useState<StoreItem[]>([]);
   const [userStateLoaded, setUserStateLoaded] = useState(false);
   const [storefrontConfigLoaded, setStorefrontConfigLoaded] = useState(false);
   const [storefrontSaveState, setStorefrontSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [beatMarketStatsMap, setBeatMarketStatsMap] = useState<Record<string, BeatMarketStats>>({});
   const [checkoutReceipt, setCheckoutReceipt] = useState<CheckoutReceipt | null>(null);
+  const [polarCheckoutState, setPolarCheckoutState] = useState<"idle" | "starting" | "pending" | "error" | "cancelled">("idle");
+  const [polarCheckoutMessage, setPolarCheckoutMessage] = useState("");
   const userStateSaveTimerRef = useRef<number | null>(null);
   const storefrontConfigFingerprintRef = useRef("");
   const [accountProfile, setAccountProfile] = useState<ProfileRow | null>(null);
@@ -1193,13 +1675,9 @@ const Index = () => {
     loops: false,
     artwork: false,
   });
-  const [beatUploadDraft, setBeatUploadDraft] = useState({
-    title: "",
-    bpm: "",
-    tags: "",
-    imageUrl: "",
-    audioUrl: "",
-  });
+  const [beatUploadDraft, setBeatUploadDraft] = useState<BeatUploadDraft>(createEmptyBeatUploadDraft());
+  const [editingBeatId, setEditingBeatId] = useState<string | null>(null);
+  const visibleHeaderProfilePhoto = user ? profileForm.profilePhoto : "";
   const [storeUploadDrafts, setStoreUploadDrafts] = useState<Record<StoreSectionName, StoreUploadDraft>>({
     drumkits: createEmptyStoreUploadDraft(),
     loops: createEmptyStoreUploadDraft(),
@@ -1253,6 +1731,17 @@ const Index = () => {
         updatedAt: new Date().toISOString(),
       },
     };
+  };
+
+  const getBeatMarketStats = (beatId: string): BeatMarketStats => beatMarketStatsMap[beatId] ?? EMPTY_BEAT_MARKET_STATS;
+  const getBeatAverageRating = (beatId: string) => {
+    const reviews = getBeatMarketStats(beatId).reviews;
+    if (!reviews.length) return 0;
+    return reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+  };
+  const formatBeatRating = (beatId: string) => {
+    const rating = getBeatAverageRating(beatId);
+    return rating ? rating.toFixed(1) : "New";
   };
 
   const filteredBeats = useMemo(() => {
@@ -1311,15 +1800,42 @@ const Index = () => {
   const featuredHomeBeats = featuredBeatIds
     .map((beatId) => allBeats.find((beat) => beat.id === beatId))
     .filter((beat): beat is Beat => Boolean(beat));
-  const trendingBeats = [...allBeats]
-    .sort((left, right) => getBeatMarketStats(right.id).soldCount - getBeatMarketStats(left.id).soldCount)
-    .slice(0, 3);
+  const hasRealTrendingSignals = useMemo(
+    () =>
+      allBeats.some((beat) => {
+        const stats = getBeatMarketStats(beat.id);
+        return stats.soldCount > 0 || stats.reviews.length > 0;
+      }),
+    [allBeats, beatMarketStatsMap],
+  );
+  const trendingBeats = useMemo(() => {
+    const beatOrder = new Map(allBeats.map((beat, index) => [beat.id, index]));
+    const ranked = [...allBeats].sort((left, right) => {
+      const leftStats = getBeatMarketStats(left.id);
+      const rightStats = getBeatMarketStats(right.id);
+      const leftScore = leftStats.soldCount * 10 + leftStats.reviews.length * 4 + getBeatAverageRating(left.id);
+      const rightScore = rightStats.soldCount * 10 + rightStats.reviews.length * 4 + getBeatAverageRating(right.id);
+
+      if (rightScore !== leftScore) return rightScore - leftScore;
+      return (beatOrder.get(right.id) ?? 0) - (beatOrder.get(left.id) ?? 0);
+    });
+
+    return (hasRealTrendingSignals ? ranked : [...allBeats].reverse()).slice(0, 3);
+  }, [allBeats, beatMarketStatsMap, hasRealTrendingSignals]);
 
   const selectedLicense = licenseSelections[selectedBeat.id] ?? "Basic Lease";
   const selectedPrice = LICENSES[selectedLicense];
   const selectedBeatImage = getBeatImageUrl(selectedBeat);
+  const currentPreviewBeat = currentPreviewBeatId ? allBeats.find((beat) => beat.id === currentPreviewBeatId) ?? null : null;
+  const currentPreviewStoreItem =
+    !currentPreviewBeat && currentPreviewBeatId ? storeItems.find((item) => item.id === currentPreviewBeatId) ?? null : null;
+  const currentPreviewLicense = currentPreviewBeat ? licenseSelections[currentPreviewBeat.id] ?? "Basic Lease" : "Loop Pack";
+  const currentPreviewPrice = currentPreviewBeat ? LICENSES[currentPreviewLicense] : currentPreviewStoreItem?.price ?? 0;
+  const currentPreviewBeatImage = currentPreviewBeat
+    ? getBeatImageUrl(currentPreviewBeat)
+    : currentPreviewStoreItem?.imageUrl ?? selectedBeatImage;
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
-  const queueBeats = cartItems.map((item) => allBeats.find((beat) => beat.id === item.beatId)).filter(Boolean) as Beat[];
+  const queueBeats = cartItems.map((item) => allBeats.find((beat) => beat.id === item.itemId)).filter(Boolean) as Beat[];
   const featuredStoreItems = useMemo(
     () =>
       ({
@@ -1338,6 +1854,183 @@ const Index = () => {
       }) satisfies Record<StoreSectionName, StoreItem[]>,
     [featuredStoreItemIds, storeItems],
   );
+
+  const readPendingPolarCheckout = (): PendingPolarCheckout | null => {
+    if (typeof window === "undefined") return null;
+
+    const rawSnapshot = window.localStorage.getItem(PENDING_POLAR_CHECKOUT_STORAGE_KEY);
+    if (!rawSnapshot) return null;
+
+    try {
+      const parsed = JSON.parse(rawSnapshot) as Partial<PendingPolarCheckout>;
+      if (
+        typeof parsed.checkoutId === "string" &&
+        typeof parsed.createdAt === "string" &&
+        typeof parsed.userId === "string" &&
+        Array.isArray(parsed.items)
+      ) {
+        return {
+          checkoutId: parsed.checkoutId,
+          createdAt: parsed.createdAt,
+          userId: parsed.userId,
+          items: parsed.items as CartItem[],
+        };
+      }
+    } catch {
+      window.localStorage.removeItem(PENDING_POLAR_CHECKOUT_STORAGE_KEY);
+    }
+
+    return null;
+  };
+
+  const clearPendingPolarCheckout = () => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(PENDING_POLAR_CHECKOUT_STORAGE_KEY);
+  };
+
+  const clearPolarCheckoutQuery = () => {
+    if (typeof window === "undefined") return;
+
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.delete("checkout");
+    nextUrl.searchParams.delete("checkout_id");
+    window.history.replaceState({}, "", `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+  };
+
+  const buildPurchasedOrdersFromSales = (pendingItems: CartItem[], saleRows: BeatSaleRow[]) => {
+    const usedSaleIndexes = new Set<number>();
+
+    return pendingItems.flatMap((item, index) => {
+      if (item.itemType !== "beat") return [];
+
+      const beat = allBeats.find((entry) => entry.id === item.itemId);
+      const matchedSaleIndex = saleRows.findIndex(
+        (sale, saleIndex) =>
+          !usedSaleIndexes.has(saleIndex) &&
+          sale.beat_id === item.itemId &&
+          sale.license_type === item.license,
+      );
+      const matchedSale = matchedSaleIndex >= 0 ? saleRows[matchedSaleIndex] : null;
+
+      if (matchedSaleIndex >= 0) {
+        usedSaleIndexes.add(matchedSaleIndex);
+      }
+
+      const purchasedAt = matchedSale?.created_at ?? new Date().toISOString();
+
+      return [
+        {
+          id: matchedSale?.id ?? `${item.itemId}-${purchasedAt}-${index}`,
+          beatId: item.itemId,
+          itemType: item.itemType,
+          subtitle: item.subtitle,
+          title: beat?.title ?? item.title,
+          license: item.license,
+          price: typeof matchedSale?.price === "number" ? matchedSale.price / 100 : item.price,
+          licenseKey: matchedSale?.license_key ?? createLicenseKey(),
+          expiresAt: matchedSale?.expires_at ?? getLicenseExpiry(item.license, purchasedAt),
+          purchasedAt,
+          imageUrl: beat ? getBeatImageUrl(beat) : item.imageUrl,
+          downloadUrl: beat?.purchaseUrl ?? item.mp3Url,
+          mp3Url: beat?.purchaseUrl ?? item.mp3Url,
+          zipUrl: item.license === "Exclusive Lease" ? beat?.exclusivePurchaseUrl ?? item.zipUrl : undefined,
+        } satisfies OrderItem,
+      ];
+    });
+  };
+
+  useEffect(() => {
+    if (authLoading || typeof window === "undefined") return;
+
+    const checkoutState = new URLSearchParams(window.location.search).get("checkout");
+    const checkoutId = new URLSearchParams(window.location.search).get("checkout_id");
+
+    if (!checkoutState) return;
+
+    const pendingCheckout = readPendingPolarCheckout();
+    if (!pendingCheckout || (user?.id && pendingCheckout.userId !== user.id)) {
+      clearPolarCheckoutQuery();
+      return;
+    }
+
+    setActiveSection("checkout");
+    setCartItems(pendingCheckout.items);
+
+    if (checkoutState === "cancel") {
+      setPolarCheckoutState("cancelled");
+      setPolarCheckoutMessage("Checkout was canceled. Your cart is still here when you want to try again.");
+      clearPendingPolarCheckout();
+      clearPolarCheckoutQuery();
+      return;
+    }
+
+    if (checkoutState === "error") {
+      setPolarCheckoutState("error");
+      setPolarCheckoutMessage("Polar could not complete the payment. Please try again.");
+      clearPendingPolarCheckout();
+      clearPolarCheckoutQuery();
+      return;
+    }
+
+    if (checkoutState !== "success" || !checkoutId || !user) {
+      return;
+    }
+
+    let isCancelled = false;
+    let attempts = 0;
+
+    const verifyCompletedCheckout = async () => {
+      if (isCancelled) return;
+
+      attempts += 1;
+      setPolarCheckoutState("pending");
+      setPolarCheckoutMessage("Payment received. Finalizing your order and unlocking downloads...");
+
+      const { data, error } = await supabase
+        .from("beat_sales")
+        .select("id, beat_id, user_id, license_type, price, license_key, expires_at, created_at, polar_order_id, polar_checkout_id")
+        .eq("polar_checkout_id", checkoutId)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Failed to verify Polar checkout.", error);
+      }
+
+      if (data && data.length >= pendingCheckout.items.filter((item) => item.itemType === "beat").length) {
+        const purchasedItems = buildPurchasedOrdersFromSales(pendingCheckout.items, data);
+        setOrders((current) => [...purchasedItems, ...current]);
+        setCheckoutReceipt({
+          orders: purchasedItems,
+          completedAt: data[0]?.created_at ?? new Date().toISOString(),
+        });
+        setCartItems([]);
+        setCartOpen(false);
+        setPolarCheckoutState("idle");
+        setPolarCheckoutMessage("");
+        clearPendingPolarCheckout();
+        clearPolarCheckoutQuery();
+        return;
+      }
+
+      if (attempts < 10) {
+        window.setTimeout(() => {
+          void verifyCompletedCheckout();
+        }, 2000);
+        return;
+      }
+
+      setPolarCheckoutState("error");
+      setPolarCheckoutMessage("Payment may have gone through, but we have not confirmed the order yet. Please refresh in a moment.");
+      clearPolarCheckoutQuery();
+    };
+
+    void verifyCompletedCheckout();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [authLoading, user?.id, allBeats]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -1416,29 +2109,6 @@ const Index = () => {
         }
       }
 
-      const storedContactMessages = window.localStorage.getItem(CONTACT_MESSAGES_STORAGE_KEY);
-      if (storedContactMessages) {
-        try {
-          const parsed = JSON.parse(storedContactMessages);
-          if (Array.isArray(parsed)) {
-            setContactMessages(
-              parsed.filter(
-                (message): message is ContactMessage =>
-                  typeof message === "object" &&
-                  message !== null &&
-                  typeof message.id === "string" &&
-                  typeof message.name === "string" &&
-                  typeof message.email === "string" &&
-                  typeof message.subject === "string" &&
-                  typeof message.message === "string" &&
-                  typeof message.submittedAt === "string",
-              ),
-            );
-          }
-        } catch {
-          window.localStorage.removeItem(CONTACT_MESSAGES_STORAGE_KEY);
-        }
-      }
     }
 
     return () => {
@@ -1467,80 +2137,119 @@ const Index = () => {
       });
     };
 
-    const loadStorefrontRowsFromSupabase = async () => {
-      const { data, error } = await supabase
-        .from("storefront_beat_tags")
-        .select("id, beat_id, tag, created_at")
-        .order("created_at", { ascending: true });
+    const loadStorefrontDataFromSupabase = async () => {
+      const [tagResult, configResult] = await Promise.all([
+        supabase
+          .from("storefront_beat_tags")
+          .select("id, beat_id, tag, created_at")
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("storefront_site_config")
+          .select("id, config, created_at, updated_at")
+          .eq("id", STOREFRONT_SITE_CONFIG_ROW_ID)
+          .maybeSingle(),
+      ]);
 
-      if (error) {
-        console.error("Failed to load storefront beat tags from Supabase.", error);
-        if (isActive) setStorefrontConfigLoaded(true);
-        return;
+      if (tagResult.error) {
+        console.error("Failed to load storefront beat tags from Supabase.", tagResult.error);
+      }
+
+      if (configResult.error) {
+        console.error("Failed to load shared storefront config from Supabase.", configResult.error);
+      }
+
+      const tagRows = tagResult.data ?? [];
+      if (tagRows.length > 0) {
+        syncBeatTagsToCache(buildBeatTagsFromRows(tagRows));
+      } else {
+        syncBeatTagsToCache(DEFAULT_BEAT_TAGS);
+        if (!tagResult.error) {
+          await seedDefaultBeatTags();
+        }
       }
 
       if (!isActive) return;
 
-      if (!data.length) {
-        syncBeatTagsToCache(DEFAULT_BEAT_TAGS);
-        await seedDefaultBeatTags();
-        setUploadedBeats([]);
-        setStoreItems(defaultStoreItems);
-        setFeaturedBeatIds(DEFAULT_FEATURED_BEAT_IDS);
-        setFeaturedStoreItemIds(DEFAULT_FEATURED_STORE_ITEM_IDS);
-        setSocialLinks(DEFAULT_SOCIAL_LINKS);
-        storefrontConfigFingerprintRef.current = serializeStorefrontSiteConfig({
-          uploadedBeats: [],
-          storeItems: defaultStoreItems,
-          featuredBeatIds: DEFAULT_FEATURED_BEAT_IDS,
-          featuredStoreItemIds: DEFAULT_FEATURED_STORE_ITEM_IDS,
-          socialLinks: DEFAULT_SOCIAL_LINKS,
-        });
-        setStorefrontConfigLoaded(true);
-        return;
-      }
+      let nextConfig = createDefaultStorefrontSiteConfig();
+      const sharedConfigRow = configResult.data as StorefrontSiteConfigRow | null;
 
-      syncBeatTagsToCache(buildBeatTagsFromRows(data));
-
-      try {
-        const siteConfig = parseStorefrontSiteConfig(data);
-        const nextConfig: StorefrontSiteConfig = {
-          uploadedBeats: siteConfig.uploadedBeats ?? [],
-          storeItems: siteConfig.storeItems ?? defaultStoreItems,
-          featuredBeatIds:
-            siteConfig.featuredBeatIds && siteConfig.featuredBeatIds.length > 0
-              ? siteConfig.featuredBeatIds
-              : DEFAULT_FEATURED_BEAT_IDS,
-          featuredStoreItemIds: siteConfig.featuredStoreItemIds ?? DEFAULT_FEATURED_STORE_ITEM_IDS,
-          socialLinks: siteConfig.socialLinks ?? DEFAULT_SOCIAL_LINKS,
-        };
-
-        setUploadedBeats(nextConfig.uploadedBeats);
-        setStoreItems(nextConfig.storeItems);
-        setFeaturedBeatIds(nextConfig.featuredBeatIds);
-        setFeaturedStoreItemIds(nextConfig.featuredStoreItemIds);
-        setSocialLinks(nextConfig.socialLinks);
-        storefrontConfigFingerprintRef.current = serializeStorefrontSiteConfig(nextConfig);
-
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, serializeStorefrontSiteConfig(nextConfig));
+      if (sharedConfigRow?.config) {
+        nextConfig = finalizeStorefrontSiteConfig(sharedConfigRow.config);
+      } else if (tagRows.length > 0) {
+        try {
+          nextConfig = finalizeStorefrontSiteConfig(parseStorefrontSiteConfig(tagRows));
+        } catch (configError) {
+          console.error("Failed to parse legacy shared storefront config from Supabase.", configError);
         }
-      } catch (configError) {
-        console.error("Failed to parse shared storefront config from Supabase.", configError);
-      } finally {
-        setStorefrontConfigLoaded(true);
       }
+
+      setUploadedBeats(nextConfig.uploadedBeats);
+      setStoreItems(nextConfig.storeItems);
+      setFeaturedBeatIds(nextConfig.featuredBeatIds);
+      setFeaturedStoreItemIds(nextConfig.featuredStoreItemIds);
+      setSocialLinks(nextConfig.socialLinks);
+      storefrontConfigFingerprintRef.current = serializeStorefrontSiteConfig(nextConfig);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, serializeStorefrontSiteConfig(nextConfig));
+      }
+
+      setStorefrontConfigLoaded(true);
     };
 
-    void loadStorefrontRowsFromSupabase();
+    void loadStorefrontDataFromSupabase();
 
     const channel = supabase
-      .channel("storefront-beat-tags")
+      .channel("storefront-admin-config")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "storefront_beat_tags" },
         () => {
-          void loadStorefrontRowsFromSupabase();
+          void loadStorefrontDataFromSupabase();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "storefront_site_config" },
+        () => {
+          void loadStorefrontDataFromSupabase();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadContactMessagesFromSupabase = async () => {
+      const { data, error } = await supabase
+        .from("storefront_contact_messages")
+        .select("id, name, email, subject, message, submitted_at, created_at")
+        .order("submitted_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load contact messages from Supabase.", error);
+        return;
+      }
+
+      if (!isActive) return;
+      setContactMessages(normalizeContactMessageRows(data));
+    };
+
+    void loadContactMessagesFromSupabase();
+
+    const channel = supabase
+      .channel("storefront-contact-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "storefront_contact_messages" },
+        () => {
+          void loadContactMessagesFromSupabase();
         },
       )
       .subscribe();
@@ -1613,6 +2322,100 @@ const Index = () => {
   }, [user?.id]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const buildMarketStatsMap = (reviews: BeatReviewRow[], sales: BeatSaleRow[]) => {
+      const nextStats = Object.fromEntries(
+        allBeats.map((beat) => [
+          beat.id,
+          {
+            favoriteCount: 0,
+            soldCount: 0,
+            reviews: [] as BeatReview[],
+          },
+        ]),
+      ) as Record<string, BeatMarketStats>;
+
+      reviews.forEach((review) => {
+        if (!nextStats[review.beat_id]) return;
+        nextStats[review.beat_id].reviews.push({
+          author: "VOID buyer",
+          rating: review.rating,
+          comment: review.comment?.trim() || "Loved this beat.",
+          createdAt: review.created_at,
+        });
+      });
+
+      sales.forEach((sale) => {
+        if (!nextStats[sale.beat_id]) return;
+        nextStats[sale.beat_id].soldCount += 1;
+      });
+
+      return nextStats;
+    };
+
+    const loadMarketStats = async () => {
+      const { data: reviewRows, error: reviewError } = await supabase
+        .from("beat_reviews")
+        .select("beat_id, rating, comment, created_at")
+        .order("created_at", { ascending: false });
+
+      if (reviewError) {
+        console.error("Failed to load beat reviews from Supabase.", reviewError);
+      }
+
+      let saleRows: BeatSaleRow[] = [];
+      const { data: publicSales, error: publicSalesError } = await supabase
+        .from("beat_sales")
+        .select("id, beat_id, user_id, license_type, price, license_key, expires_at, created_at");
+
+      if (!publicSalesError) {
+        saleRows = publicSales ?? [];
+      } else {
+        const shouldTryOwnerSales = Boolean(user?.id);
+        if (shouldTryOwnerSales) {
+          const { data: ownerSales, error: ownerSalesError } = await supabase
+            .from("beat_sales")
+            .select("id, beat_id, user_id, license_type, price, license_key, expires_at, created_at")
+            .eq("user_id", user.id);
+
+          if (!ownerSalesError) {
+            saleRows = ownerSales ?? [];
+          } else {
+            console.error("Failed to load beat sales from Supabase.", ownerSalesError);
+          }
+        }
+      }
+
+      if (!isActive) return;
+
+      setBeatMarketStatsMap(buildMarketStatsMap(reviewRows ?? [], saleRows));
+    };
+
+    void loadMarketStats();
+
+    const reviewsChannel = supabase
+      .channel("void-beat-reviews")
+      .on("postgres_changes", { event: "*", schema: "public", table: "beat_reviews" }, () => {
+        void loadMarketStats();
+      })
+      .subscribe();
+
+    const salesChannel = supabase
+      .channel("void-beat-sales")
+      .on("postgres_changes", { event: "*", schema: "public", table: "beat_sales" }, () => {
+        void loadMarketStats();
+      })
+      .subscribe();
+
+    return () => {
+      isActive = false;
+      void supabase.removeChannel(reviewsChannel);
+      void supabase.removeChannel(salesChannel);
+    };
+  }, [allBeats, user?.id]);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileForm));
     }
@@ -1643,12 +2446,6 @@ const Index = () => {
   }, [savedPromoCodes]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(CONTACT_MESSAGES_STORAGE_KEY, JSON.stringify(contactMessages));
-    }
-  }, [contactMessages]);
-
-  useEffect(() => {
     if (!adminUnlocked) {
       setStorefrontSaveState("idle");
       return;
@@ -1658,6 +2455,14 @@ const Index = () => {
       setStorefrontSaveState("idle");
     }
   }, [adminUnlocked, storefrontConfigDirty, storefrontSaveState]);
+
+  useEffect(() => {
+    if (contactSubmitState === "idle" || contactSubmitState === "sending") return;
+
+    if (contactForm.name || contactForm.email || contactForm.subject || contactForm.message) {
+      setContactSubmitState("idle");
+    }
+  }, [contactForm.email, contactForm.message, contactForm.name, contactForm.subject, contactSubmitState]);
 
   useEffect(() => {
     if (!user || !userStateLoaded || typeof window === "undefined") return;
@@ -1721,46 +2526,49 @@ const Index = () => {
     if (!adminUnlocked) return;
 
     setStorefrontSaveState("saving");
-    const publishedConfig: StorefrontSiteConfig = {
-      uploadedBeats,
-      storeItems,
-      featuredBeatIds,
-      featuredStoreItemIds,
-      socialLinks,
-    };
+    try {
+      const [persistedUploadedBeats, persistedStoreItems] = await Promise.all([
+        Promise.all(uploadedBeats.map((beat) => materializeBeatAssets(beat))),
+        Promise.all(storeItems.map((item) => materializeStoreItemAssets(item))),
+      ]);
 
-    const configRows = [
-      buildStorefrontConfigRows(STOREFRONT_CONFIG_KEYS.featuredBeatIds, JSON.stringify(featuredBeatIds)),
-      buildStorefrontConfigRows(STOREFRONT_CONFIG_KEYS.featuredStoreItemIds, JSON.stringify(featuredStoreItemIds)),
-      buildStorefrontConfigRows(STOREFRONT_CONFIG_KEYS.socialLinks, JSON.stringify(socialLinks)),
-      buildStorefrontConfigRows(STOREFRONT_CONFIG_KEYS.uploadedBeats, JSON.stringify(uploadedBeats)),
-      buildStorefrontConfigRows(STOREFRONT_CONFIG_KEYS.storeItems, JSON.stringify(storeItems)),
-    ];
+      const publishedConfig: StorefrontSiteConfig = {
+        uploadedBeats: persistedUploadedBeats,
+        storeItems: persistedStoreItems,
+        featuredBeatIds,
+        featuredStoreItemIds,
+        socialLinks,
+      };
 
-    for (const rowGroup of configRows) {
-      const { error: chunkError } = await supabase.from("storefront_beat_tags").insert(rowGroup.chunkRows);
+      const { error: configError } = await supabase.from("storefront_site_config").upsert(
+        {
+          id: STOREFRONT_SITE_CONFIG_ROW_ID,
+          config: publishedConfig,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
 
-      if (chunkError) {
-        console.error("Failed to save shared storefront config chunks to Supabase.", chunkError);
+      if (configError) {
+        console.error("Failed to save shared storefront config to Supabase.", configError);
         setStorefrontSaveState("error");
         return;
       }
 
-      const { error: completeError } = await supabase.from("storefront_beat_tags").insert(rowGroup.completeRow);
+      setUploadedBeats(persistedUploadedBeats);
+      setStoreItems(persistedStoreItems);
 
-      if (completeError) {
-        console.error("Failed to finalize shared storefront config in Supabase.", completeError);
-        setStorefrontSaveState("error");
-        return;
+      const publishedSnapshot = serializeStorefrontSiteConfig(publishedConfig);
+      storefrontConfigFingerprintRef.current = publishedSnapshot;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, publishedSnapshot);
       }
-    }
 
-    storefrontConfigFingerprintRef.current = storefrontConfigSnapshot;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, serializeStorefrontSiteConfig(publishedConfig));
+      setStorefrontSaveState("saved");
+    } catch (error) {
+      console.error("Failed to publish storefront changes.", error);
+      setStorefrontSaveState("error");
     }
-
-    setStorefrontSaveState("saved");
   };
 
   const toggleFavorite = (itemId: string) => {
@@ -2016,10 +2824,7 @@ const Index = () => {
     <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
       <div className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
         <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">About the Producer</p>
-        <div className="mt-5 flex flex-col gap-5 md:flex-row md:items-center">
-          <div className="flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/8 bg-[linear-gradient(135deg,#141418,#09090b)] text-3xl font-semibold text-white shadow-[0_18px_42px_rgba(0,0,0,0.34)]">
-            EJ
-          </div>
+        <div className="mt-5">
           <div>
             <h2 className="text-3xl font-semibold text-white sm:text-4xl">EJCERTIFIED</h2>
             <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/42">Houston, Texas</p>
@@ -2032,19 +2837,13 @@ const Index = () => {
           {socialLinks.tiktok ? (
             <a href={socialLinks.tiktok} target="_blank" rel="noreferrer" className="void-dashboard-primary">
               <Music2 size={16} />
-              Follow on TikTok
+              TikTok @ejcertified_
             </a>
           ) : null}
           {socialLinks.instagram ? (
             <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-pill-button">
               <Instagram size={16} />
-              View Instagram
-            </a>
-          ) : null}
-          {socialLinks.youtube ? (
-            <a href={socialLinks.youtube} target="_blank" rel="noreferrer" className="void-store-pill-button">
-              <Youtube size={16} />
-              YouTube
+              Instagram @ejcertified_
             </a>
           ) : null}
         </div>
@@ -2065,7 +2864,7 @@ const Index = () => {
             className="void-dashboard-input"
           />
           <button type="submit" className="void-dashboard-primary w-full justify-center">
-            {emailSignupState === "saving" ? "Saving..." : "Notify Me"}
+            {emailSignupState === "saving" ? "Saving..." : "Get 10% Off"}
           </button>
         </form>
         <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/42">
@@ -2079,6 +2878,65 @@ const Index = () => {
     </section>
   );
 
+  const renderProducerBioSection = () => (
+    <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
+      <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">About the Producer</p>
+      <div className="mt-5">
+        <div>
+          <h2 className="text-3xl font-semibold text-white sm:text-4xl">EJCERTIFIED</h2>
+          <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/42">Houston, Texas</p>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+            Authentic production built for artists, producers, and listeners who want a harder sound with real replay value.
+          </p>
+        </div>
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        {socialLinks.tiktok ? (
+          <a href={socialLinks.tiktok} target="_blank" rel="noreferrer" className="void-dashboard-primary">
+            <Music2 size={16} />
+            TikTok @ejcertified_
+          </a>
+        ) : null}
+        {socialLinks.instagram ? (
+          <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-pill-button">
+            <Instagram size={16} />
+            Instagram @ejcertified_
+          </a>
+        ) : null}
+      </div>
+    </section>
+  );
+
+  const renderEmailSignupSection = () => (
+    <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
+      <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Email List</p>
+      <h2 className="mt-4 text-2xl font-semibold text-white sm:text-3xl">Get beat drops straight to your inbox</h2>
+      <p className="mt-3 text-sm leading-7 text-white/62">Subscribe to get 10% off your first beat and hear about new drops first.</p>
+      <form onSubmit={(event) => void submitEmailSignup(event)} className="mt-6 space-y-3">
+        <input
+          value={emailSignup}
+          onChange={(event) => {
+            setEmailSignup(event.target.value);
+            if (emailSignupState !== "idle") setEmailSignupState("idle");
+          }}
+          type="email"
+          placeholder="Your email"
+          className="void-dashboard-input"
+        />
+        <button type="submit" className="void-dashboard-primary w-full justify-center">
+          {emailSignupState === "saving" ? "Saving..." : "Get 10% Off"}
+        </button>
+      </form>
+      <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/42">
+        {emailSignupState === "saved"
+          ? "Saved. You'll be first to know."
+          : emailSignupState === "error"
+            ? "Signup captured. We'll connect live email delivery next."
+            : "First-time buyers can get VOID10."}
+      </p>
+    </section>
+  );
+
   const renderTrendingBeatsSection = () => (
     <section className="space-y-4">
       <div className="space-y-2">
@@ -2086,7 +2944,11 @@ const Index = () => {
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-white sm:text-3xl">Most Popular Right Now</h2>
-            <p className="mt-2 max-w-2xl text-sm text-white/58">These beats are moving fast. Grab yours before they’re gone.</p>
+            <p className="mt-2 max-w-2xl text-sm text-white/58">
+              {hasRealTrendingSignals
+                ? "Built from real purchase and review activity happening on VOID right now."
+                : "Real buyer activity will populate here as it comes in. Until then, these are the newest drops on VOID."}
+            </p>
           </div>
           <button type="button" onClick={() => setActiveSection("beats")} className="void-store-pill-button">
             Shop Beats
@@ -2193,6 +3055,8 @@ const Index = () => {
       return;
     }
 
+    setSelectedBeatId(beat.id);
+
     if (!audioRef.current) audioRef.current = new Audio();
     const audio = audioRef.current;
     const previousBeatId = currentPreviewBeatId;
@@ -2225,20 +3089,89 @@ const Index = () => {
     }
   };
 
+  const playStorePreview = async (item: StoreItem) => {
+    if (!item.previewUrl) return;
+
+    if (currentPreviewBeatId === item.id) {
+      stopPreview({ resetBeatId: item.id });
+      return;
+    }
+
+    if (!audioRef.current) audioRef.current = new Audio();
+    const audio = audioRef.current;
+    const previousBeatId = currentPreviewBeatId;
+
+    clearPreviewTimer();
+    audio.onended = null;
+    audio.pause();
+    audio.src = item.previewUrl;
+    audio.currentTime = 0;
+    if (previousBeatId) {
+      setPreviewProgress((state) => ({ ...state, [previousBeatId]: 0 }));
+    }
+
+    audio.onended = () => {
+      finishPreview(item.id);
+    };
+
+    try {
+      await audio.play();
+      setCurrentPreviewBeatId(item.id);
+      previewTimerRef.current = window.setInterval(() => {
+        const current = Math.min(audio.currentTime, 30);
+        setPreviewProgress((state) => ({ ...state, [item.id]: (current / 30) * 100 }));
+        if (audio.currentTime >= 30) {
+          finishPreview(item.id);
+        }
+      }, 200);
+    } catch {
+      stopPreview({ resetBeatId: item.id });
+    }
+  };
+
   const syncCheckoutFromProfile = () => {
     setCheckoutForm(extractPaymentDetails(profileForm));
   };
 
   const addToCart = (beat: Beat) => {
-    if (!user) {
-      openAuth("signin");
-      return;
-    }
     setCheckoutReceipt(null);
     const license = licenseSelections[beat.id] ?? "Basic Lease";
     setCartItems((current) => {
-      const nextItem = { beatId: beat.id, license, price: LICENSES[license], audioUrl: beat.purchaseUrl };
-      const filtered = current.filter((item) => item.beatId !== beat.id);
+      const nextItem: CartItem = {
+        itemId: beat.id,
+        itemType: "beat",
+        title: beat.title,
+        subtitle: beat.artist,
+        license,
+        price: LICENSES[license],
+        audioUrl: beat.previewUrl,
+        imageUrl: getBeatImageUrl(beat),
+        mp3Url: beat.purchaseUrl,
+        zipUrl: license === "Exclusive Lease" ? beat.exclusivePurchaseUrl : undefined,
+      };
+      const filtered = current.filter((item) => item.itemId !== beat.id);
+      return [...filtered, nextItem];
+    });
+    setCartOpen(true);
+  };
+
+  const addStoreItemToCart = (item: StoreItem) => {
+    const price = item.price ?? 0;
+    if (!price) return;
+    setCheckoutReceipt(null);
+    setCartItems((current) => {
+      const nextItem: CartItem = {
+        itemId: item.id,
+        itemType: item.section,
+        title: item.title,
+        subtitle: item.subtitle,
+        license: "Loop Pack",
+        price,
+        audioUrl: item.previewUrl,
+        imageUrl: item.imageUrl,
+        downloadAssets: item.downloadAssets,
+      };
+      const filtered = current.filter((entry) => entry.itemId !== item.id);
       return [...filtered, nextItem];
     });
     setCartOpen(true);
@@ -2246,12 +3179,10 @@ const Index = () => {
 
   const proceedToCheckout = () => {
     if (!cartItems.length) return;
-    if (!user) {
-      openAuth("signin");
-      return;
-    }
     setCheckoutReceipt(null);
-    syncCheckoutFromProfile();
+    if (user) {
+      syncCheckoutFromProfile();
+    }
     setCartOpen(false);
     setActiveSection("checkout");
   };
@@ -2261,27 +3192,63 @@ const Index = () => {
     void playPreview(beat);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!cartItems.length) return;
-    const completedAt = new Date().toISOString();
-    const purchasedItems: OrderItem[] = cartItems.map((item, index) => ({
-      id: `${item.beatId}-${Date.now()}-${index}`,
-      beatId: item.beatId,
-      title: allBeats.find((beat) => beat.id === item.beatId)?.title ?? item.beatId,
-      license: item.license,
-      price: item.price,
-      licenseKey: createLicenseKey(),
-      expiresAt: getLicenseExpiry(item.license, completedAt),
-      purchasedAt: completedAt,
-    }));
-    setOrders((current) => [...purchasedItems, ...current]);
-    setCheckoutReceipt({
-      orders: purchasedItems,
-      completedAt,
+    if (!user) {
+      openAuth("signin");
+      return;
+    }
+    const unsupportedItems = cartItems.filter((item) => item.itemType !== "beat");
+    if (unsupportedItems.length > 0) {
+      setPolarCheckoutState("error");
+      setPolarCheckoutMessage("Polar checkout is currently set up for beat purchases only.");
+      setActiveSection("checkout");
+      return;
+    }
+
+    setPolarCheckoutState("starting");
+    setPolarCheckoutMessage("Opening Polar hosted checkout...");
+    setCheckoutReceipt(null);
+
+    const pendingSnapshot = {
+      checkoutId: "",
+      createdAt: new Date().toISOString(),
+      items: cartItems,
+      userId: user.id,
+    } satisfies PendingPolarCheckout;
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PENDING_POLAR_CHECKOUT_STORAGE_KEY, JSON.stringify(pendingSnapshot));
+    }
+
+    const { data, error } = await supabase.functions.invoke("create-polar-checkout", {
+      body: {
+        cartItems: cartItems.map((item) => ({
+          beatId: item.itemId,
+          license: item.license,
+        })),
+        returnUrl: window.location.origin,
+      },
     });
-    setCartItems([]);
-    setCartOpen(false);
-    setActiveSection("checkout");
+
+    if (error || !data?.url || !data?.checkoutId) {
+      console.error("Failed to create Polar checkout.", error ?? data);
+      setPolarCheckoutState("error");
+      setPolarCheckoutMessage("Polar checkout could not be started. Please try again.");
+      clearPendingPolarCheckout();
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        PENDING_POLAR_CHECKOUT_STORAGE_KEY,
+        JSON.stringify({
+          ...pendingSnapshot,
+          checkoutId: data.checkoutId,
+        } satisfies PendingPolarCheckout),
+      );
+      window.location.assign(data.url);
+    }
   };
 
   const handleStoreUploadFile = (section: StoreSectionName, field: "imageUrl" | "previewUrl", event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2372,7 +3339,7 @@ const Index = () => {
     });
   };
 
-  const handleBeatUploadFile = (field: "imageUrl" | "audioUrl", event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBeatUploadFile = (field: "imageUrl" | "audioUrl" | "zipUrl", event: React.ChangeEvent<HTMLInputElement>) => {
     if (!adminUnlocked) return;
     const file = event.target.files?.[0];
     if (!file) return;
@@ -2393,6 +3360,43 @@ const Index = () => {
         [field]: value,
       },
     }));
+  };
+
+  const startEditingUploadedBeat = (beat: Beat) => {
+    if (!adminUnlocked) return;
+
+    setBeatUploadDraft({
+      title: beat.title,
+      bpm: String(beat.bpm),
+      tags: beat.tags.join(", "),
+      imageUrl: beat.imageUrl,
+      audioUrl: beat.previewUrl,
+      zipUrl: beat.exclusivePurchaseUrl ?? "",
+    });
+    setEditingBeatId(beat.id);
+    setAdminToolOpen((current) => ({ ...current, "add-beat": true }));
+  };
+
+  const removeUploadedBeat = (beatId: string) => {
+    if (!adminUnlocked) return;
+
+    setUploadedBeats((current) => current.filter((beat) => beat.id !== beatId));
+    setFeaturedBeatIds((current) => current.filter((id) => id !== beatId));
+    setFavorites((current) => current.filter((id) => id !== beatId));
+    setPlaylist((current) => current.filter((id) => id !== beatId));
+    setCartItems((current) => current.filter((item) => item.itemId !== beatId));
+    setQueueItems((current) => current.filter((item) => item.id !== beatId));
+    setLicenseSelections((current) => {
+      const next = { ...current };
+      delete next[beatId];
+      return next;
+    });
+
+    if (editingBeatId === beatId) {
+      setEditingBeatId(null);
+      setBeatUploadDraft(createEmptyBeatUploadDraft());
+      setAdminToolOpen((current) => ({ ...current, "add-beat": false }));
+    }
   };
 
   const submitBeatUpload = () => {
@@ -2418,7 +3422,7 @@ const Index = () => {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-    const beatId = `${slug || "beat"}-${Date.now()}`;
+    const beatId = editingBeatId ?? `${slug || "beat"}-${Date.now()}`;
 
     const nextBeat: Beat = {
       id: beatId,
@@ -2429,27 +3433,29 @@ const Index = () => {
       imageUrl: beatUploadDraft.imageUrl,
       previewUrl: beatUploadDraft.audioUrl,
       purchaseUrl: beatUploadDraft.audioUrl,
+      exclusivePurchaseUrl: beatUploadDraft.zipUrl || undefined,
     };
 
-    setUploadedBeats((current) => [...current, nextBeat]);
+    setUploadedBeats((current) =>
+      editingBeatId ? current.map((beat) => (beat.id === editingBeatId ? nextBeat : beat)) : [...current, nextBeat],
+    );
     setLicenseSelections((current) => ({ ...current, [beatId]: "Basic Lease" }));
     if (parsedTags.length > 0) {
       syncBeatTagsToCache({
         ...beatTags,
         [beatId]: parsedTags,
       });
+    } else {
+      syncBeatTagsToCache(
+        Object.fromEntries(Object.entries(beatTags).filter(([key]) => key !== beatId)) as Record<string, string[]>,
+      );
     }
-    setBeatUploadDraft({
-      title: "",
-      bpm: "",
-      tags: "",
-      imageUrl: "",
-      audioUrl: "",
-    });
+    setBeatUploadDraft(createEmptyBeatUploadDraft());
+    setEditingBeatId(null);
     setAdminToolOpen((current) => ({ ...current, "add-beat": false }));
   };
 
-  const submitContact = (event: FormEvent<HTMLFormElement>) => {
+  const submitContact = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextMessage = {
@@ -2466,14 +3472,31 @@ const Index = () => {
       return;
     }
 
-    setContactMessages((current) => [
-      {
-        id: `contact-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        submittedAt: new Date().toISOString(),
+    setContactSubmitState("sending");
+
+    const submittedAt = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("storefront_contact_messages")
+      .insert({
         ...nextMessage,
-      },
-      ...current,
-    ]);
+        submitted_at: submittedAt,
+      })
+      .select("id, name, email, subject, message, submitted_at, created_at")
+      .single();
+
+    if (error) {
+      console.error("Failed to save contact message.", error);
+      setContactSubmitState("error");
+      if (typeof window !== "undefined") {
+        window.alert("Your message could not be saved right now. Please try again.");
+      }
+      return;
+    }
+
+    setContactMessages((current) => {
+      const persistedMessage = mapContactMessageRow(data);
+      return [persistedMessage, ...current.filter((message) => message.id !== persistedMessage.id)];
+    });
 
     setContactForm({
       name: "",
@@ -2481,10 +3504,7 @@ const Index = () => {
       subject: "",
       message: "",
     });
-
-    if (typeof window !== "undefined") {
-      window.alert("Message sent.");
-    }
+    setContactSubmitState("sent");
   };
 
   const submitEmailSignup = async (event: FormEvent<HTMLFormElement>) => {
@@ -2558,52 +3578,56 @@ const Index = () => {
     window.URL.revokeObjectURL(objectUrl);
   };
 
-  const renderBeatGrid = (items: Beat[]) => (
-    <motion.div
-      initial="hidden"
-      animate="show"
-      variants={{
-        hidden: {},
-        show: {
-          transition: {
-            staggerChildren: 0.08,
-          },
-        },
-      }}
-      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5"
-    >
-      {items.map((beat) => {
-        const selected = licenseSelections[beat.id] ?? "Basic Lease";
-        const price = LICENSES[selected];
-        const isPlaying = currentPreviewBeatId === beat.id;
-        const secondsRemaining = isPlaying ? Math.max(0, 30 - Math.floor(((previewProgress[beat.id] ?? 0) / 100) * 30)) : null;
-        const beatCardTags = beatTags[beat.id] ?? beat.tags;
-        const beatImage = getBeatImageUrl(beat);
-        return (
-          <motion.button
-            key={beat.id}
-            type="button"
-            onClick={() => setSelectedBeatId(beat.id)}
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className={`void-dashboard-card void-product-card flex h-full flex-col text-left ${selectedBeat.id === beat.id ? "ring-2 ring-[#ff9f7e]/70" : ""}`}
-          >
-            {beatImage ? (
-              <div className="void-product-media overflow-hidden rounded-[14px]">
-                <img src={beatImage} alt={beat.title} className="h-full w-full object-cover" />
-              </div>
-            ) : (
-              <div className="void-dashboard-cover" />
-            )}
-            <div className="mt-2.5">
+  const renderBeatCard = (beat: Beat, layoutClass = "") => {
+    const selected = licenseSelections[beat.id] ?? "Basic Lease";
+    const price = LICENSES[selected];
+    const isPlaying = currentPreviewBeatId === beat.id;
+    const secondsRemaining = isPlaying ? Math.max(0, 30 - Math.floor(((previewProgress[beat.id] ?? 0) / 100) * 30)) : null;
+    const beatCardTags = beatTags[beat.id] ?? beat.tags;
+    const beatImage = getBeatImageUrl(beat);
+    const isUploadedBeat = uploadedBeats.some((entry) => entry.id === beat.id);
+
+    return (
+      <motion.button
+        key={beat.id}
+        type="button"
+        onClick={() => setSelectedBeatId(beat.id)}
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className={`void-dashboard-card void-product-card flex h-full flex-col text-left ${selectedBeat.id === beat.id ? "ring-2 ring-[#ff9f7e]/70" : ""} ${layoutClass}`}
+      >
+            <div className="relative overflow-hidden rounded-[14px]">
+              {beatImage ? (
+                <div className="void-product-media overflow-hidden rounded-[14px]">
+                  <img src={beatImage} alt={beat.title} className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <div className="void-dashboard-cover" />
+              )}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void playPreview(beat);
+                }}
+                aria-label={isPlaying ? `Pause ${beat.title}` : `Play ${beat.title}`}
+                className="void-beat-image-play"
+              >
+                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+              </button>
+            </div>
+            <div className="void-beat-card-copy mt-2.5">
               <p className="text-[25px] font-semibold text-white">{beat.title}</p>
               <p className="mt-1 text-[20px] text-white/55">{beat.artist}</p>
               <p className="mt-2 text-[18px] uppercase tracking-[0.16em] text-white/45">
-                BPM: {beat.bpm} | Key: {beat.musicalKey ?? "Unlisted"}
+                BPM: {beat.bpm}
               </p>
+              {adminUnlocked && beat.exclusivePurchaseUrl ? (
+                <p className="mt-2 text-[14px] uppercase tracking-[0.18em] text-[#ffb59b]">ZIP Ready</p>
+              ) : null}
               {beatCardTags.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="void-beat-card-tags mt-3 flex flex-wrap gap-2">
                   {beatCardTags.map((tag) => (
                     <span key={`${beat.id}-${tag}`} className="rounded-full bg-white/8 px-3 py-1.5 text-[16px] uppercase tracking-[0.16em] text-white/68">
                       {tag}
@@ -2663,6 +3687,30 @@ const Index = () => {
                   ) : (
                     <p className="mt-2.5 text-[11px] text-white/48">No tags on this beat yet.</p>
                   )}
+                  {isUploadedBeat ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEditingUploadedBeat(beat);
+                        }}
+                        className="rounded-full bg-white/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80"
+                      >
+                        Edit Beat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeUploadedBeat(beat.id);
+                        }}
+                        className="rounded-full bg-[#2a1114] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#ffc1c1]"
+                      >
+                        Remove Beat
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -2674,7 +3722,7 @@ const Index = () => {
                 <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/48">{secondsRemaining}s remaining</div>
               ) : null}
             </div>
-            <div className="mt-auto space-y-2.5 pt-3">
+            <div className="void-beat-card-actions mt-auto space-y-2.5 pt-3">
               <div className="grid grid-cols-[40px_repeat(3,minmax(0,1fr))] gap-2">
                 <button
                   type="button"
@@ -2741,14 +3789,161 @@ const Index = () => {
                   }}
                   className="inline-flex w-full items-center justify-center rounded-full bg-[#ff9f7e] px-3 py-2.5 text-[13px] font-semibold text-white"
                 >
-                  {user ? "Buy" : "Sign In To Buy"}
+                  Add To Cart
                 </button>
               </div>
             </div>
-          </motion.button>
-        );
-      })}
+      </motion.button>
+    );
+  };
+
+  const renderBeatGrid = (items: Beat[]) => (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={{
+        hidden: {},
+        show: {
+          transition: {
+            staggerChildren: 0.08,
+          },
+        },
+      }}
+      className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
+    >
+      {items.map((beat) => renderBeatCard(beat))}
     </motion.div>
+  );
+
+  const renderFeaturedBeatScroller = (items: Beat[]) => (
+    <div className="flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2">
+      {items.map((beat) => renderBeatCard(beat, "void-featured-beat-card min-w-[285px] max-w-[320px] flex-none snap-start lg:min-w-[320px]"))}
+    </div>
+  );
+
+  const renderLoopPackCard = (item: StoreItem, layoutClass = "") => {
+    const isPlaying = currentPreviewBeatId === item.id;
+    const secondsRemaining = isPlaying ? Math.max(0, 30 - Math.floor(((previewProgress[item.id] ?? 0) / 100) * 30)) : null;
+    const packTags = item.tags ?? [];
+    const price = item.price ?? 5;
+
+    return (
+      <motion.button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          if (item.previewUrl) {
+            void playStorePreview(item);
+          }
+        }}
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className={`void-dashboard-card void-product-card flex h-full flex-col text-left ${layoutClass}`}
+      >
+        <div className="relative overflow-hidden rounded-[14px]">
+          {item.imageUrl ? (
+            <div className="void-product-media overflow-hidden rounded-[14px]">
+              <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className={`void-dashboard-cover ${item.accentClass}`} />
+          )}
+          {item.previewUrl ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void playStorePreview(item);
+              }}
+              aria-label={isPlaying ? `Pause ${item.title}` : `Play ${item.title}`}
+              className="void-beat-image-play"
+            >
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+            </button>
+          ) : null}
+        </div>
+        <div className="void-beat-card-copy mt-2.5">
+          <p className="text-[25px] font-semibold text-white">{item.title}</p>
+          <p className="mt-1 text-[18px] text-white/55">{item.subtitle}</p>
+          {typeof item.bpm === "number" ? (
+            <p className="mt-2 text-[18px] uppercase tracking-[0.16em] text-white/45">BPM: {item.bpm}</p>
+          ) : null}
+          {packTags.length > 0 ? (
+            <div className="void-beat-card-tags mt-3 flex flex-wrap gap-2">
+              {packTags.map((tag) => (
+                <span key={`${item.id}-${tag}`} className="rounded-full bg-white/8 px-3 py-1.5 text-[16px] uppercase tracking-[0.16em] text-white/68">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-3">
+          <div className="h-1.5 rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-[#ff8a63]" style={{ width: `${previewProgress[item.id] ?? 0}%` }} />
+          </div>
+          {isPlaying && secondsRemaining !== null ? (
+            <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/48">{secondsRemaining}s remaining</div>
+          ) : null}
+        </div>
+        <div className="void-beat-card-actions mt-auto space-y-2.5 pt-3">
+          <div className="grid grid-cols-[40px_repeat(2,minmax(0,1fr))] gap-2">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void playStorePreview(item);
+              }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15"
+            >
+              {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleFavorite(item.id);
+              }}
+              className={`void-product-pill ${favorites.includes(item.id) ? "bg-[#ff8a63] text-white" : "bg-white/8 text-white/70"}`}
+            >
+              <Heart size={14} fill={favorites.includes(item.id) ? "currentColor" : "none"} />
+              Favorite
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleQueue(item);
+              }}
+              className={`void-product-pill ${queueItems.some((entry) => entry.id === item.id) ? "bg-white text-black" : "bg-white/8 text-white/70"}`}
+            >
+              <ListMusic size={14} />
+              Queue
+            </button>
+          </div>
+          <div className="grid grid-cols-[auto_1fr] items-center gap-2">
+            <span className="text-[22px] font-semibold text-white">${price}</span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                addStoreItemToCart(item);
+              }}
+              className="void-dashboard-primary w-full justify-center"
+            >
+              Add Pack To Cart
+            </button>
+          </div>
+        </div>
+      </motion.button>
+    );
+  };
+
+  const renderFeaturedLoopScroller = (items: StoreItem[]) => (
+    <div className="flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-2">
+      {items.map((item) => renderLoopPackCard(item, "void-featured-beat-card min-w-[285px] max-w-[320px] flex-none snap-start lg:min-w-[320px]"))}
+    </div>
   );
 
   const renderFavoriteBeatRow = (beat: Beat) => {
@@ -2779,7 +3974,7 @@ const Index = () => {
                 <p className="text-2xl font-semibold text-white">{beat.title}</p>
                 <p className="mt-1 text-sm text-white/55">{beat.artist}</p>
                 <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-white/55">
-                  BPM: {beat.bpm} | Key: {beat.musicalKey ?? "Unlisted"}
+                  BPM: {beat.bpm}
                 </div>
               </div>
               <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">${price}</div>
@@ -2819,7 +4014,7 @@ const Index = () => {
                 onClick={() => addToCart(beat)}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black"
               >
-                Buy
+                Add To Cart
               </button>
             </div>
           </div>
@@ -2845,6 +4040,9 @@ const Index = () => {
           </button>
         </div>
         {items.length > 0 ? (
+          section === "loops" ? (
+            renderFeaturedLoopScroller(items)
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5">
             {items.map((item) => (
               <button
@@ -2867,6 +4065,7 @@ const Index = () => {
               </button>
             ))}
           </div>
+          )
         ) : (
           <div className="rounded-[28px] bg-[linear-gradient(180deg,rgba(18,18,22,0.92),rgba(10,10,12,0.98))] px-6 py-12 text-center">
             <p className="text-2xl font-semibold text-white/40 sm:text-3xl">
@@ -2881,6 +4080,16 @@ const Index = () => {
   const renderBeatUploadManager = () =>
     adminUnlocked && adminToolOpen["add-beat"] ? (
       <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">
+            {editingBeatId ? "Edit Uploaded Beat" : "Upload Beat"}
+          </p>
+          <p className="mt-2 text-sm text-white/58">
+            {editingBeatId
+              ? "Update the uploaded beat details below, then save your storefront changes."
+              : "Add a beat now, then save your storefront changes to publish it everywhere."}
+          </p>
+        </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
             <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Beat Title</label>
@@ -2910,10 +4119,35 @@ const Index = () => {
               <input type="file" accept="audio/*" onChange={(event) => handleBeatUploadFile("audioUrl", event)} className="hidden" />
             </label>
           </div>
+          <div className="lg:col-span-2">
+            <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Exclusive ZIP</label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/8 px-4 py-3 text-sm text-white/72">
+                <Upload size={15} />
+                {beatUploadDraft.zipUrl ? "ZIP selected" : "Upload zip"}
+                <input type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(event) => handleBeatUploadFile("zipUrl", event)} className="hidden" />
+              </label>
+              <span className={`rounded-full px-3 py-2 text-[12px] uppercase tracking-[0.18em] ${beatUploadDraft.zipUrl ? "bg-[#ff8a63]/15 text-[#ffb59b]" : "bg-white/6 text-white/45"}`}>
+                {beatUploadDraft.zipUrl ? "Exclusive ZIP Ready" : "No ZIP Uploaded"}
+              </span>
+            </div>
+          </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
-          <button type="button" onClick={submitBeatUpload} className="void-dashboard-primary">Add Beat</button>
-          <button type="button" onClick={() => setAdminToolOpen((current) => ({ ...current, "add-beat": false }))} className="void-store-pill-button">Close</button>
+          <button type="button" onClick={submitBeatUpload} className="void-dashboard-primary">
+            {editingBeatId ? "Update Beat" : "Add Beat"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditingBeatId(null);
+              setBeatUploadDraft(createEmptyBeatUploadDraft());
+              setAdminToolOpen((current) => ({ ...current, "add-beat": false }));
+            }}
+            className="void-store-pill-button"
+          >
+            Close
+          </button>
         </div>
       </div>
     ) : null;
@@ -3074,6 +4308,20 @@ const Index = () => {
           <p className="void-store-page-subtitle">Secure Checkout</p>
         </div>
       </div>
+      {polarCheckoutState !== "idle" ? (
+        <div
+          className={`rounded-[24px] border px-5 py-4 ${
+            polarCheckoutState === "error"
+              ? "border-[#ff8c8c]/35 bg-[#2a1114] text-[#ffc1c1]"
+              : polarCheckoutState === "cancelled"
+                ? "border-white/10 bg-white/[0.03] text-white/72"
+                : "border-[#ff8a63]/25 bg-[#181111] text-[#ffd0bf]"
+          }`}
+        >
+          <p className="text-[11px] uppercase tracking-[0.24em]">Polar Checkout</p>
+          <p className="mt-2 text-sm leading-6">{polarCheckoutMessage}</p>
+        </div>
+      ) : null}
       {checkoutReceipt ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
           <div className="void-dashboard-panel p-6 sm:p-7">
@@ -3111,11 +4359,16 @@ const Index = () => {
                       </div>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
-                      {beat ? (
-                        <a href={beat.purchaseUrl} download className="void-dashboard-primary">
-                          Download Beat
+                      {getOrderDownloadAssets(order, beat).map((asset, assetIndex) => (
+                        <a
+                          key={`${order.id}-${asset.url}-${assetIndex}`}
+                          href={asset.url}
+                          download
+                          className={assetIndex === 0 ? "void-dashboard-primary" : "void-store-pill-button"}
+                        >
+                          {asset.label}
                         </a>
-                      ) : null}
+                      ))}
                       <button type="button" onClick={() => downloadLicenseDocument(order)} className="void-store-pill-button">
                         Download License
                       </button>
@@ -3155,28 +4408,108 @@ const Index = () => {
       ) : cartItems.length === 0 ? (
         <div className="void-dashboard-panel p-6 sm:p-7">
           <h3 className="text-xl font-semibold text-white">Your checkout is empty</h3>
-          <p className="mt-2 text-sm leading-6 text-white/60">Pick a beat and press Buy to open it here.</p>
+          <p className="mt-2 text-sm leading-6 text-white/60">Pick a beat and add it to your cart to preview checkout here.</p>
           <div className="mt-5">
             <button type="button" onClick={() => setActiveSection("beats")} className="void-dashboard-primary">Browse Beats</button>
+          </div>
+        </div>
+      ) : !user ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="void-dashboard-panel p-6 sm:p-7">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Checkout Preview</p>
+            <h3 className="mt-3 text-2xl font-semibold text-white">See your order before you sign in.</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
+              Your cart is ready. Sign in or create an account when you are ready to pay, save your order, and get the license and download.
+            </p>
+            <div className="mt-6 rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">What happens next</p>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-white/68">
+                <li>1. Sign in to attach the order to your account.</li>
+                <li>2. Review payment options and any saved payment info.</li>
+                <li>3. Finish checkout and get your beat plus license instantly.</li>
+              </ul>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button type="button" onClick={() => openAuth("signin")} className="void-dashboard-primary">
+                Sign In To Continue
+              </button>
+              <button type="button" onClick={() => setCartOpen(true)} className="void-store-pill-button">
+                Back To Cart
+              </button>
+            </div>
+          </div>
+          <div className="void-dashboard-panel p-6 sm:p-7">
+            <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">Order Summary</p>
+            <h3 className="mt-3 text-2xl font-semibold text-white">Preview Your Order</h3>
+            <p className="mt-2 text-sm leading-6 text-white/58">You can browse the full checkout first. Payment unlocks after sign-in.</p>
+            <div className="mt-5 space-y-3">
+              {cartItems.map((item, index) => {
+                const beat = allBeats.find((entry) => entry.id === item.itemId);
+                return (
+                  <div key={`${item.itemId}-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-white">{beat?.title ?? item.itemId}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/45">{item.license}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-white">${item.price}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 text-white">
+              <span>Total</span>
+              <span className="text-xl font-semibold">${cartTotal}</span>
+            </div>
           </div>
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
           <div className="void-dashboard-panel p-6 sm:p-7">
-            {renderPaymentMethodManager("checkout")}
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Hosted Payment</p>
+            <h3 className="mt-3 text-2xl font-semibold text-white">Finish payment on Polar.sh</h3>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
+              You will be redirected to Polar&apos;s hosted checkout to pay securely. No card or bank details are entered on VOID.
+            </p>
+            <div className="mt-6 rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-white/42">How it works</p>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-white/68">
+                <li>1. Review the order summary on this page.</li>
+                <li>2. Click below to open Polar hosted checkout.</li>
+                <li>3. After payment, you&apos;ll return here and your downloads will unlock automatically.</li>
+              </ul>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleCheckout}
+                disabled={polarCheckoutState === "starting" || polarCheckoutState === "pending"}
+                className="void-dashboard-primary"
+              >
+                {polarCheckoutState === "starting"
+                  ? "Opening Polar..."
+                  : polarCheckoutState === "pending"
+                    ? "Finalizing Order..."
+                    : "Continue To Polar Checkout"}
+              </button>
+              <button type="button" onClick={() => setCartOpen(true)} className="void-store-pill-button">
+                Back To Cart
+              </button>
+            </div>
           </div>
           <div className="void-dashboard-panel p-6 sm:p-7">
             <p className="text-[11px] uppercase tracking-[0.28em] text-white/40">Order Summary</p>
             <h3 className="mt-3 text-2xl font-semibold text-white">Review Your Order</h3>
-            <p className="mt-2 text-sm leading-6 text-white/58">Choose a payment option on the left, apply a promo code if you have one, and finish checkout securely.</p>
+            <p className="mt-2 text-sm leading-6 text-white/58">Your cart total will be charged through Polar hosted checkout.</p>
             <div className="mt-5 space-y-3">
               {cartItems.map((item, index) => {
-                const beat = allBeats.find((entry) => entry.id === item.beatId);
+                const beat = allBeats.find((entry) => entry.id === item.itemId);
                 return (
-                  <div key={`${item.beatId}-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                  <div key={`${item.itemId}-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-white">{beat?.title ?? item.beatId}</p>
+                        <p className="font-semibold text-white">{beat?.title ?? item.itemId}</p>
                         <p className="mt-1 text-xs uppercase tracking-[0.18em] text-white/45">{item.license}</p>
                       </div>
                       <span className="text-sm font-semibold text-white">${item.price}</span>
@@ -3191,27 +4524,10 @@ const Index = () => {
                 Want full ownership? Switch any beat above to Exclusive before checkout and we’ll remove it from future sale.
               </p>
             </div>
-            <div className="mt-5 space-y-2">
-              <label className="block text-xs uppercase tracking-[0.18em] text-white/45">Promo Code</label>
-              <div className="flex gap-2">
-                <input
-                  value={checkoutPromoCode}
-                  onChange={(event) => setCheckoutPromoCode(event.target.value)}
-                  placeholder="Enter promo code"
-                  className="void-dashboard-input min-w-0"
-                />
-                <button type="button" onClick={() => applyPromoCode("checkout")} className="void-dashboard-secondary">
-                  Apply
-                </button>
-              </div>
-            </div>
             <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 text-white">
               <span>Total</span>
               <span className="text-xl font-semibold">${cartTotal}</span>
             </div>
-            <button type="button" onClick={handleCheckout} className="void-dashboard-primary mt-5 w-full justify-center">
-              Complete Secure Checkout
-            </button>
           </div>
         </div>
       )}
@@ -3380,18 +4696,20 @@ const Index = () => {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const matchedBeat = allBeats.find((beat) => beat.id === order.beatId);
-                    if (matchedBeat && typeof window !== "undefined") {
-                      window.open(matchedBeat.purchaseUrl, "_blank", "noopener,noreferrer");
-                    }
-                  }}
-                  className="void-store-pill-button"
-                >
-                  Download Beat
-                </button>
+                {getOrderDownloadAssets(order, allBeats.find((beat) => beat.id === order.beatId)).map((asset) => (
+                  <button
+                    key={`${order.id}-${asset.url}`}
+                    type="button"
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.open(asset.url, "_blank", "noopener,noreferrer");
+                      }
+                    }}
+                    className="void-store-pill-button"
+                  >
+                    {asset.label}
+                  </button>
+                ))}
                 <button type="button" onClick={() => downloadLicenseDocument(order)} className="void-store-pill-button">
                   Download License
                 </button>
@@ -3425,7 +4743,7 @@ const Index = () => {
 
   const renderProfilePage = () => (
     <section className="space-y-6">
-      <div className="void-store-pagehead">
+      <div className="void-store-pagehead void-store-pagehead-centered">
         <div>
           <h1 className="void-store-page-title">Your Profile</h1>
           <p className="void-store-page-copy">
@@ -3467,15 +4785,115 @@ const Index = () => {
     }
 
     if (activeSection === "drumkits") {
-      return <StoreSection title="Drumkits" items={storeItems.filter((item) => item.section === "drumkits")} favorites={favorites} toggleFavorite={toggleFavorite} queueIds={queueItems.map((item) => item.id)} toggleQueue={toggleUpNextItem} adminUnlocked={adminUnlocked} section="drumkits" featuredIds={featuredStoreItemIds.drumkits} onToggleFeatured={(itemId) => toggleFeaturedStoreItem("drumkits", itemId)} featuredManagerOpen={adminToolOpen.drumkits} onToggleFeaturedManager={() => toggleAdminTool("drumkits")} uploadOpen={adminToolOpen["add-drumkits"]} onToggleUploadManager={() => toggleAdminTool("add-drumkits")} uploadDraft={storeUploadDrafts.drumkits} onUploadDraftChange={(field, value) => updateStoreUploadDraft("drumkits", field, value)} onUploadFile={(field, event) => handleStoreUploadFile("drumkits", field, event)} onSubmitUpload={() => submitStoreUpload("drumkits")} />;
+      return <StoreSection title="Drumkits" items={storeItems.filter((item) => item.section === "drumkits")} favorites={favorites} toggleFavorite={toggleFavorite} queueIds={queueItems.map((item) => item.id)} toggleQueue={toggleUpNextItem} adminUnlocked={adminUnlocked} section="drumkits" featuredIds={featuredStoreItemIds.drumkits} onToggleFeatured={(itemId) => toggleFeaturedStoreItem("drumkits", itemId)} featuredManagerOpen={adminToolOpen.drumkits} onToggleFeaturedManager={() => toggleAdminTool("drumkits")} uploadOpen={adminToolOpen["add-drumkits"]} onToggleUploadManager={() => toggleAdminTool("add-drumkits")} uploadDraft={storeUploadDrafts.drumkits} onUploadDraftChange={(field, value) => updateStoreUploadDraft("drumkits", field, value)} onUploadFile={(field, event) => handleStoreUploadFile("drumkits", field, event)} onSubmitUpload={() => submitStoreUpload("drumkits")} onAddToCart={addStoreItemToCart} />;
     }
 
     if (activeSection === "loops") {
-      return <StoreSection title="Loops" items={storeItems.filter((item) => item.section === "loops")} favorites={favorites} toggleFavorite={toggleFavorite} queueIds={queueItems.map((item) => item.id)} toggleQueue={toggleUpNextItem} adminUnlocked={adminUnlocked} section="loops" featuredIds={featuredStoreItemIds.loops} onToggleFeatured={(itemId) => toggleFeaturedStoreItem("loops", itemId)} featuredManagerOpen={adminToolOpen.loops} onToggleFeaturedManager={() => toggleAdminTool("loops")} uploadOpen={adminToolOpen["add-loops"]} onToggleUploadManager={() => toggleAdminTool("add-loops")} uploadDraft={storeUploadDrafts.loops} onUploadDraftChange={(field, value) => updateStoreUploadDraft("loops", field, value)} onUploadFile={(field, event) => handleStoreUploadFile("loops", field, event)} onSubmitUpload={() => submitStoreUpload("loops")} />;
+      const loopItems = storeItems.filter((item) => item.section === "loops");
+      return (
+        <div className="space-y-4">
+          <div className="void-store-pagehead void-store-pagehead-centered void-store-pagehead-floating">
+            <div>
+              <h1 className="void-store-page-title void-store-page-title-beats">Loops</h1>
+              <p className="void-store-page-subtitle">by ejcertified</p>
+            </div>
+            {adminUnlocked ? (
+              <div className="void-store-page-actions flex-wrap justify-center">
+                <button type="button" onClick={() => toggleAdminTool("add-loops")} className="inline-flex items-center gap-2 rounded-full bg-[#ff8a63] px-4 py-3 text-sm font-semibold text-white">
+                  <Upload size={16} />
+                  Add Loops
+                </button>
+                <button type="button" onClick={() => toggleAdminTool("loops")} className="void-store-pill-button">
+                  {featuredStoreItemIds.loops.length ? "Change Featured Loops" : "Add Featured Loops"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {adminUnlocked && adminToolOpen["add-loops"] ? (
+            <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Loops Title</label>
+                  <input value={storeUploadDrafts.loops.title} onChange={(event) => updateStoreUploadDraft("loops", "title", event.target.value)} className="void-dashboard-input" />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Subtitle</label>
+                  <input value={storeUploadDrafts.loops.subtitle} onChange={(event) => updateStoreUploadDraft("loops", "subtitle", event.target.value)} placeholder="3 loop pack" className="void-dashboard-input" />
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">JPEG / Cover Image</label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/8 px-4 py-3 text-sm text-white/72">
+                    <Upload size={15} />
+                    {storeUploadDrafts.loops.imageUrl ? "Image selected" : "Upload image"}
+                    <input type="file" accept="image/*" onChange={(event) => handleStoreUploadFile("loops", "imageUrl", event)} className="hidden" />
+                  </label>
+                </div>
+                <div>
+                  <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Preview Audio</label>
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/8 px-4 py-3 text-sm text-white/72">
+                    <Upload size={15} />
+                    {storeUploadDrafts.loops.previewUrl ? "Audio selected" : "Upload audio"}
+                    <input type="file" accept="audio/*" onChange={(event) => handleStoreUploadFile("loops", "previewUrl", event)} className="hidden" />
+                  </label>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button type="button" onClick={() => submitStoreUpload("loops")} className="void-dashboard-primary">Add Loops</button>
+                <button type="button" onClick={() => toggleAdminTool("add-loops")} className="void-store-pill-button">Close</button>
+              </div>
+            </div>
+          ) : null}
+          {adminUnlocked && adminToolOpen.loops ? (
+            <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Admin Featured Loops</p>
+                  <p className="mt-2 text-sm text-white/58">Select up to 3 loop packs to show on the homepage.</p>
+                </div>
+                <span className="rounded-full bg-white/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
+                  {featuredStoreItemIds.loops.length}/3 selected
+                </span>
+              </div>
+              {loopItems.length ? (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {loopItems.map((item) => (
+                    <button
+                      key={`loops-featured-${item.id}`}
+                      type="button"
+                      onClick={() => toggleFeaturedStoreItem("loops", item.id)}
+                      className={`rounded-2xl border px-4 py-3 text-left text-sm ${
+                        featuredStoreItemIds.loops.includes(item.id)
+                          ? "border-[#ff8a63]/60 bg-[#ff8a63]/12 text-white"
+                          : "border-white/8 bg-white/[0.03] text-white/72"
+                      }`}
+                    >
+                      <span className="block font-semibold">{item.title}</span>
+                      <span className="mt-1 block text-xs text-white/48">
+                        {featuredStoreItemIds.loops.includes(item.id) ? "Featured on homepage" : "Click to feature"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-5 text-sm text-white/56">
+                  Upload loops first, then choose which ones should be featured on the homepage.
+                </div>
+              )}
+            </div>
+          ) : null}
+          {loopItems.length === 0 ? (
+            <div className="void-dashboard-panel p-6 text-sm text-white/60">No loops uploaded yet.</div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {loopItems.map((item) => renderLoopPackCard(item))}
+            </div>
+          )}
+        </div>
+      );
     }
 
     if (activeSection === "artwork") {
-      return <StoreSection title="Artwork" items={storeItems.filter((item) => item.section === "artwork")} favorites={favorites} toggleFavorite={toggleFavorite} queueIds={queueItems.map((item) => item.id)} toggleQueue={toggleUpNextItem} adminUnlocked={adminUnlocked} section="artwork" featuredIds={featuredStoreItemIds.artwork} onToggleFeatured={(itemId) => toggleFeaturedStoreItem("artwork", itemId)} featuredManagerOpen={adminToolOpen.artwork} onToggleFeaturedManager={() => toggleAdminTool("artwork")} uploadOpen={adminToolOpen["add-artwork"]} onToggleUploadManager={() => toggleAdminTool("add-artwork")} uploadDraft={storeUploadDrafts.artwork} onUploadDraftChange={(field, value) => updateStoreUploadDraft("artwork", field, value)} onUploadFile={(field, event) => handleStoreUploadFile("artwork", field, event)} onSubmitUpload={() => submitStoreUpload("artwork")} />;
+      return <StoreSection title={COMMUNITY_ART_LABEL} items={storeItems.filter((item) => item.section === "artwork")} favorites={favorites} toggleFavorite={toggleFavorite} queueIds={queueItems.map((item) => item.id)} toggleQueue={toggleUpNextItem} adminUnlocked={adminUnlocked} section="artwork" featuredIds={featuredStoreItemIds.artwork} onToggleFeatured={(itemId) => toggleFeaturedStoreItem("artwork", itemId)} featuredManagerOpen={adminToolOpen.artwork} onToggleFeaturedManager={() => toggleAdminTool("artwork")} uploadOpen={adminToolOpen["add-artwork"]} onToggleUploadManager={() => toggleAdminTool("add-artwork")} uploadDraft={storeUploadDrafts.artwork} onUploadDraftChange={(field, value) => updateStoreUploadDraft("artwork", field, value)} onUploadFile={(field, event) => handleStoreUploadFile("artwork", field, event)} onSubmitUpload={() => submitStoreUpload("artwork")} onAddToCart={addStoreItemToCart} />;
     }
 
     if (activeSection === "contact") {
@@ -3525,7 +4943,19 @@ const Index = () => {
                   />
                 </div>
                 <div>
-                  <button type="submit" className="void-dashboard-primary">Send Message</button>
+                  <button
+                    type="submit"
+                    disabled={contactSubmitState === "sending"}
+                    className={`void-dashboard-primary ${contactSubmitState === "sending" ? "opacity-60" : ""}`}
+                  >
+                    {contactSubmitState === "sending" ? "Sending..." : "Send Message"}
+                  </button>
+                  {contactSubmitState === "sent" ? (
+                    <p className="mt-3 text-sm text-[#ffb59b]">Message saved to the admin inbox.</p>
+                  ) : null}
+                  {contactSubmitState === "error" ? (
+                    <p className="mt-3 text-sm text-[#ff9f7e]">Message failed to save. Try again.</p>
+                  ) : null}
                 </div>
               </form>
             </div>
@@ -3593,12 +5023,12 @@ const Index = () => {
                 <input value={socialLinks.instagram} onChange={(event) => setSocialLinks((current) => ({ ...current, instagram: event.target.value }))} className="void-dashboard-input" />
               </div>
               <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Twitter / X</label>
-                <input value={socialLinks.twitter} onChange={(event) => setSocialLinks((current) => ({ ...current, twitter: event.target.value }))} className="void-dashboard-input" />
+                <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Gmail</label>
+                <input value={socialLinks.gmail} onChange={(event) => setSocialLinks((current) => ({ ...current, gmail: event.target.value }))} className="void-dashboard-input" />
               </div>
               <div>
-                <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">YouTube</label>
-                <input value={socialLinks.youtube} onChange={(event) => setSocialLinks((current) => ({ ...current, youtube: event.target.value }))} className="void-dashboard-input" />
+                <label className="mb-2 block text-xs uppercase tracking-[0.18em] text-white/45">Discord</label>
+                <input value={socialLinks.discord} onChange={(event) => setSocialLinks((current) => ({ ...current, discord: event.target.value }))} className="void-dashboard-input" />
               </div>
             </div>
           ) : null}
@@ -3606,19 +5036,24 @@ const Index = () => {
             {[
               { label: "TikTok", url: socialLinks.tiktok, icon: Music2 },
               { label: "Instagram", url: socialLinks.instagram, icon: Instagram },
-              { label: "Twitter / X", url: socialLinks.twitter, icon: BadgeInfo },
-              { label: "YouTube", url: socialLinks.youtube, icon: Youtube },
+              { label: "Gmail", url: socialLinks.gmail, icon: Mail },
+              { label: "Discord", url: socialLinks.discord, icon: MessageCircle },
             ].map((social) => {
               const Icon = social.icon;
               return (
-                <a key={social.label} href={social.url || undefined} target="_blank" rel="noreferrer" className={`void-dashboard-card ${social.url ? "" : "pointer-events-none opacity-55"}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-white/8 p-3 text-white"><Icon size={18} /></div>
-                    <div>
-                      <p className="font-semibold text-white">{social.label}</p>
-                      <p className="mt-1 text-xs text-white/50">{social.url || "Link not set yet"}</p>
-                    </div>
+                <a
+                  key={social.label}
+                  href={social.url || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={social.label}
+                  title={social.label}
+                  className={`void-dashboard-card flex min-h-[120px] items-center justify-center ${social.url ? "" : "pointer-events-none opacity-55"}`}
+                >
+                  <div className="rounded-full bg-white/8 p-5 text-white">
+                    <Icon size={28} />
                   </div>
+                  <span className="sr-only">{social.label}</span>
                 </a>
               );
               })}
@@ -3882,7 +5317,10 @@ const Index = () => {
             className="void-store-hero-copy"
           >
             <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">EJCERTIFIED PRESENTS</p>
-            <h1 className="void-store-hero-title">VOID ARCHIVE</h1>
+            <h1 className="void-store-hero-title">
+              <span>VOID</span>
+              <span>ARCHIVE</span>
+            </h1>
             <div className="void-store-hero-grid">
               <div className="void-store-hero-column">
                 <div className="void-store-counter-card">
@@ -3905,49 +5343,53 @@ const Index = () => {
                 </div>
                 <button type="button" onClick={() => setActiveSection("loops")} className="void-store-hero-button w-full">Browse Loops</button>
               </div>
-              <div className="void-store-hero-column">
+              <div className="void-store-hero-column void-store-hero-column-wide">
                 <div className="void-store-counter-card">
-                  <span className="void-store-counter-label">Artwork</span>
+                  <span className="void-store-counter-label">{COMMUNITY_ART_LABEL}</span>
                   <span className="void-store-counter-value">{storeItems.filter((item) => item.section === "artwork").length}</span>
                 </div>
-                <button type="button" onClick={() => setActiveSection("artwork")} className="void-store-hero-button w-full">Browse Artwork</button>
+                <button type="button" onClick={() => setActiveSection("artwork")} className="void-store-hero-button w-full">Browse Community Art</button>
               </div>
             </div>
           </motion.div>
         </motion.section>
 
-        {renderLicenseReferenceCard()}
-
-        {renderArtistBioSection()}
-
         <section className="space-y-4">
           <div>
             <h2 className="text-2xl font-semibold text-white sm:text-3xl">Featured Beats</h2>
           </div>
-          {renderBeatGrid(featuredHomeBeats)}
+          {renderFeaturedBeatScroller(featuredHomeBeats)}
         </section>
 
-        {renderStorePreviewGrid("drumkits", "Featured Drumkits")}
+        {renderLicenseReferenceCard()}
+
+        {renderProducerBioSection()}
+
+        {renderEmailSignupSection()}
+
         {renderStorePreviewGrid("loops", "Featured Loops")}
-        {renderStorePreviewGrid("artwork", "Featured Artwork")}
       </div>
     );
   };
 
   const favoriteProducts = [...allBeats, ...storeItems].filter((item) => favorites.includes(item.id));
   const playlistBeats = allBeats.filter((beat) => playlist.includes(beat.id));
-  const combinedQueue = [...queueItems, ...cartItems.map((item) => {
-    const matchedBeat = allBeats.find((beat) => beat.id === item.beatId);
-    return {
-      id: `${item.beatId}-${item.license}`,
-      title: matchedBeat?.title ?? item.beatId,
-      subtitle: item.license,
-      section: "loops" as const,
-      accentClass: "void-dashboard-cover",
-      previewUrl: matchedBeat?.previewUrl,
-      imageUrl: matchedBeat ? getBeatImageUrl(matchedBeat) : undefined,
-    };
-  })];
+  const combinedQueue = [
+    ...queueItems,
+    ...cartItems.map((item) => {
+      const matchedBeat = item.itemType === "beat" ? allBeats.find((beat) => beat.id === item.itemId) : undefined;
+      return {
+        id: `${item.itemId}-${item.license}`,
+        title: matchedBeat?.title ?? item.title,
+        subtitle: item.license,
+        section: (item.itemType === "beat" ? "loops" : item.itemType) as StoreSectionName,
+        accentClass: "void-dashboard-cover",
+        previewUrl: matchedBeat?.previewUrl ?? item.audioUrl,
+        imageUrl: matchedBeat ? getBeatImageUrl(matchedBeat) : item.imageUrl,
+        price: item.price,
+      };
+    }),
+  ];
   const filteredLocations = locationQuery.trim().length === 0
     ? []
     : LOCATION_SUGGESTIONS.filter((location) => location.toLowerCase().includes(locationQuery.toLowerCase())).slice(0, 6);
@@ -4306,12 +5748,14 @@ const Index = () => {
                   <div className="rounded-2xl border border-white/8 bg-[#151519] p-4 text-sm text-white/70">Your cart is empty.</div>
                 ) : (
                   cartItems.map((item, index) => {
-                    const beat = allBeats.find((entry) => entry.id === item.beatId);
+                    const beat = item.itemType === "beat" ? allBeats.find((entry) => entry.id === item.itemId) : undefined;
                     return (
-                      <div key={`${item.beatId}-${index}`} className="rounded-2xl border border-white/8 bg-[#151519] p-4">
-                        <p className="font-medium text-white">{beat?.title}</p>
+                      <div key={`${item.itemId}-${index}`} className="rounded-2xl border border-white/8 bg-[#151519] p-4">
+                        <p className="font-medium text-white">{beat?.title ?? item.title}</p>
                         <p className="mt-1 text-sm text-white/60">{item.license}</p>
-                        <p className="mt-1 text-xs text-white/45">Full beat file included after purchase</p>
+                        <p className="mt-1 text-xs text-white/45">
+                          {item.itemType === "beat" ? "Full beat file included after purchase" : "3-loop pack included after purchase"}
+                        </p>
                         <div className="mt-3 flex items-center justify-between">
                           <span className="text-white">${item.price}</span>
                           <button
@@ -4393,7 +5837,11 @@ const Index = () => {
                         type="button"
                         onClick={() => {
                           const matchedBeat = allBeats.find((entry) => entry.id === beat.id);
-                          if (matchedBeat) handleQueuePlay(matchedBeat);
+                          if (matchedBeat) {
+                            handleQueuePlay(matchedBeat);
+                          } else if (beat.previewUrl) {
+                            void playStorePreview(beat);
+                          }
                         }}
                         className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#ffb48f] to-[#5d5d5d] text-white"
                       >
@@ -4414,14 +5862,18 @@ const Index = () => {
                       >
                         <p className="truncate text-sm font-medium text-white">{beat.title}</p>
                         <p className="truncate text-xs text-white/55">{beat.subtitle}</p>
-                        {currentPreviewBeatId === beat.id && allBeats.some((entry) => entry.id === beat.id) ? (
+                        {currentPreviewBeatId === beat.id ? (
                           <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-white/45">
                             {Math.max(0, 30 - Math.floor(((previewProgress[beat.id] ?? 0) / 100) * 30))}s remaining
                           </p>
                         ) : null}
                       </button>
                       <span className="text-sm font-semibold text-white">
-                        {allBeats.some((entry) => entry.id === beat.id) ? `$${LICENSES[licenseSelections[beat.id] ?? "Basic Lease"]}` : "Queued"}
+                        {allBeats.some((entry) => entry.id === beat.id)
+                          ? `$${LICENSES[licenseSelections[beat.id] ?? "Basic Lease"]}`
+                          : typeof beat.price === "number"
+                            ? `$${beat.price}`
+                            : "Queued"}
                       </span>
                     </div>
                   </div>
@@ -4501,8 +5953,8 @@ const Index = () => {
                 className="void-store-avatarbutton"
                 aria-label={user ? "Open profile" : "Open sign in"}
               >
-                {profileForm.profilePhoto ? (
-                  <img src={profileForm.profilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                {visibleHeaderProfilePhoto ? (
+                  <img src={visibleHeaderProfilePhoto} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
                   <UserCircle2 size={20} />
                 )}
@@ -4561,12 +6013,6 @@ const Index = () => {
                     {item.label}
                   </button>
                 ))}
-                {socialLinks.instagram ? (
-                  <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-footer-link">Instagram</a>
-                ) : null}
-                {socialLinks.youtube ? (
-                  <a href={socialLinks.youtube} target="_blank" rel="noreferrer" className="void-store-footer-link">YouTube</a>
-                ) : null}
                 <button type="button" onClick={unlockAdmin} className="void-store-footer-link">
                   Admin
                 </button>
@@ -4582,33 +6028,60 @@ const Index = () => {
               exit={{ opacity: 0, y: 20 }}
               className="void-store-player"
             >
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-[#ffb48f] to-[#5d5d5d]">
-                  {selectedBeatImage ? (
-                    <img src={selectedBeatImage} alt={selectedBeat.title} className="h-full w-full object-cover" />
-                  ) : null}
+              <div className="void-store-player-top">
+                <div className="void-store-player-meta">
+                  <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-[#ffb48f] to-[#5d5d5d]">
+                    {currentPreviewBeatImage ? (
+                      <img src={currentPreviewBeatImage} alt={currentPreviewBeat?.title ?? currentPreviewStoreItem?.title ?? selectedBeat.title} className="h-full w-full object-cover" />
+                    ) : null}
+                  </div>
+                  <div className="void-store-player-copy">
+                    <p className="truncate text-sm font-semibold text-white">{currentPreviewBeat?.title ?? currentPreviewStoreItem?.title ?? selectedBeat.title}</p>
+                    <p className="truncate text-xs uppercase tracking-[0.18em] text-white/46">
+                      {currentPreviewBeat?.artist ?? currentPreviewStoreItem?.subtitle ?? selectedBeat.artist}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{selectedBeat.title}</p>
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/46">{selectedBeat.artist}</p>
+                <div className="void-store-player-actions">
+                  <button type="button" onClick={() => setQueueOpen(true)} className="void-store-iconpill">Queue</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentPreviewBeat) {
+                        addToCart(currentPreviewBeat);
+                      } else if (currentPreviewStoreItem) {
+                        addStoreItemToCart(currentPreviewStoreItem);
+                      }
+                    }}
+                    className="void-dashboard-primary"
+                  >
+                    Buy ${currentPreviewPrice}
+                  </button>
                 </div>
               </div>
-              <div className="hidden min-w-[220px] flex-1 items-center gap-3 sm:flex">
-                <button type="button" onClick={() => void playPreview(selectedBeat)} className="rounded-full bg-white/10 p-3 text-white">
-                  {currentPreviewBeatId === selectedBeat.id ? <Pause size={16} /> : <Play size={16} />}
+              <div className="void-store-player-progressrow">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (currentPreviewBeat) {
+                      void playPreview(currentPreviewBeat);
+                    } else if (currentPreviewStoreItem) {
+                      void playStorePreview(currentPreviewStoreItem);
+                    }
+                  }}
+                  className="rounded-full bg-white/10 p-3 text-white"
+                >
+                  {currentPreviewBeatId === (currentPreviewBeat?.id ?? currentPreviewStoreItem?.id) ? <Pause size={16} /> : <Play size={16} />}
                 </button>
-                <div className="h-1.5 flex-1 rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-[#ff8a63]" style={{ width: `${previewProgress[selectedBeat.id] ?? 0}%` }} />
+                <div className="void-store-player-bar">
+                  <div
+                    className="h-full rounded-full bg-[#ff8a63]"
+                    style={{ width: `${previewProgress[currentPreviewBeat?.id ?? currentPreviewStoreItem?.id ?? ""] ?? 0}%` }}
+                  />
                 </div>
-                <span className="text-xs uppercase tracking-[0.18em] text-white/42">
-                  {Math.max(0, 30 - Math.floor(((previewProgress[selectedBeat.id] ?? 0) / 100) * 30))}s
+                <span className="shrink-0 text-xs uppercase tracking-[0.18em] text-white/42">
+                  {Math.max(0, 30 - Math.floor((((previewProgress[currentPreviewBeat?.id ?? currentPreviewStoreItem?.id ?? ""] ?? 0)) / 100) * 30))}s
                 </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setQueueOpen(true)} className="void-store-iconpill">Queue</button>
-                <button type="button" onClick={() => addToCart(selectedBeat)} className="void-dashboard-primary">
-                  Buy ${selectedPrice}
-                </button>
               </div>
             </motion.div>
           ) : null}
