@@ -1797,6 +1797,11 @@
   }
 
   @media (max-width: 767px) {
+    .void-store-frame {
+      min-height: 100vh;
+      border-radius: 24px;
+    }
+
     .void-store-main,
     .void-store-header,
     .void-store-footer {
@@ -1804,25 +1809,103 @@
       padding-right: 1rem;
     }
 
+    .void-store-header {
+      gap: 0.9rem;
+      padding-top: 0.9rem;
+    }
+
+    .void-store-header .void-brandword {
+      font-size: 2rem !important;
+    }
+
+    .void-store-nav {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding-bottom: 0.35rem;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .void-store-nav::-webkit-scrollbar {
+      display: none;
+    }
+
+    .void-store-navlink {
+      flex: 0 0 auto;
+      font-size: 0.96rem;
+      letter-spacing: 0.025em;
+    }
+
+    .void-store-searchslot {
+      width: 100%;
+    }
+
+    .void-store-search {
+      width: 100%;
+      min-height: 44px;
+    }
+
+    .void-store-search input {
+      font-size: 0.95rem !important;
+    }
+
+    .void-store-toolbar {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 0.5rem 0.8rem;
+    }
+
+    .void-store-headerlink {
+      font-size: 0.95rem;
+      letter-spacing: 0.025em;
+    }
+
     .void-store-admin-banner {
+      flex-direction: column;
+      align-items: flex-start;
       margin-left: 1rem;
       margin-right: 1rem;
     }
 
+    .void-store-admin-banner-actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+
     .void-store-hero {
-      min-height: 580px;
+      min-height: auto;
+      padding: 1.15rem;
+    }
+
+    .void-store-hero-copy {
+      width: 100%;
+      padding: 0.2rem 0 0;
+    }
+
+    .void-store-hero-title {
+      flex-direction: column;
+      gap: 0.12rem;
+      font-size: clamp(2.3rem, 14vw, 3.4rem);
+      line-height: 0.92;
+      white-space: normal;
+    }
+
+    .void-store-page-title,
+    .void-store-page-title-beats {
+      font-size: clamp(2.2rem, 12vw, 3.6rem);
     }
 
     .void-store-hero-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
+      margin-top: 1rem;
     }
 
     .void-store-hero-column-wide {
-      grid-column: span 2;
+      grid-column: auto;
     }
 
     .void-store-counter-card {
-      min-height: 96px;
+      min-height: 0;
       padding: 0.9rem 1rem;
     }
 
@@ -1848,6 +1931,20 @@
     .void-store-player-actions {
       width: 100%;
       justify-content: flex-start;
+    }
+
+    .void-store-shell [class*="text-[10px]"],
+    .void-store-shell [class*="text-[11px]"],
+    .void-store-shell [class*="text-[12px]"],
+    .void-store-shell [class*="text-[13px]"],
+    .void-store-shell [class~="text-xs"] {
+      font-size: 0.74rem !important;
+      line-height: 1.35;
+    }
+
+    .void-store-shell [class~="text-sm"] {
+      font-size: 0.9rem !important;
+      line-height: 1.45;
     }
   }
 }
