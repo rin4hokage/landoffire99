@@ -6,7 +6,14 @@ const allowedOrigins = (
   [
     "http://127.0.0.1:4327",
     "http://localhost:4327",
+    "http://127.0.0.1:4329",
+    "http://localhost:4329",
+    "http://127.0.0.1:4330",
+    "http://localhost:4330",
     "https://landoffire99.lovable.app",
+    "https://landoffire99.vercel.app",
+    "https://voidarchive.xyz",
+    "https://www.voidarchive.xyz",
   ].join(",")
 )
   .split(",")
