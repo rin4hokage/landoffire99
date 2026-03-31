@@ -3269,9 +3269,14 @@ const Index = () => {
     });
 
     if (error || !data?.url || !data?.checkoutId) {
+      const errorMessage =
+        (typeof data?.error === "string" && data.error) ||
+        error?.message ||
+        "Polar checkout could not be started. Please try again.";
+
       console.error("Failed to create Polar checkout.", error ?? data);
       setPolarCheckoutState("error");
-      setPolarCheckoutMessage("Polar checkout could not be started. Please try again.");
+      setPolarCheckoutMessage(errorMessage);
       clearPendingPolarCheckout();
       return;
     }
