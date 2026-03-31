@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Apple, Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
 
 const Auth = () => {
-  const { session, loading: authLoading, signInWithOAuth } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,14 +54,6 @@ const Auth = () => {
     }
   };
 
-  const handleOAuth = async (provider: "google" | "apple" | "twitter") => {
-    try {
-      await signInWithOAuth(provider);
-    } catch (error: any) {
-      toast.error(error.message || "Social sign-in is not available yet.");
-    }
-  };
-
   return (
     <div className="void-shell min-h-screen flex items-center justify-center p-4">
       <div className="void-backdrop" aria-hidden="true">
@@ -91,41 +83,6 @@ const Auth = () => {
         </div>
 
         <div className="glass-card p-6 space-y-6">
-          {!isLogin && (
-            <div className="space-y-3">
-              <h2 className="text-center text-3xl font-semibold text-white">Continue with</h2>
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => void handleOAuth("twitter")}
-                  className="flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                >
-                  Continue with X
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleOAuth("apple")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                >
-                  <Apple size={16} />
-                  Continue with Apple
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleOAuth("google")}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-white transition hover:bg-white/10"
-                >
-                  <span className="text-base font-bold text-[#4285F4]">G</span>
-                  Continue with Google
-                </button>
-              </div>
-              <div className="flex items-center gap-3 pt-1">
-                <div className="h-px flex-1 bg-white/10" />
-                <span className="text-xs text-white/45">Or</span>
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-            </div>
-          )}
           <div className="flex gap-1 p-1 rounded-md bg-muted/20">
             <button
               type="button"
