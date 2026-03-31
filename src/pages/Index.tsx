@@ -3207,6 +3207,28 @@ const Index = () => {
     void playPreview(beat);
   };
 
+  const getCheckoutReturnUrl = () => {
+    if (typeof window === "undefined") return "https://voidarchive.xyz";
+
+    const origin = window.location.origin;
+
+    if (
+      origin.startsWith("http://127.0.0.1") ||
+      origin.startsWith("http://localhost")
+    ) {
+      return origin;
+    }
+
+    if (
+      origin === "https://voidarchive.xyz" ||
+      origin === "https://www.voidarchive.xyz"
+    ) {
+      return origin;
+    }
+
+    return "https://voidarchive.xyz";
+  };
+
   const handleCheckout = async () => {
     if (!cartItems.length) return;
     if (!user) {
@@ -3242,7 +3264,7 @@ const Index = () => {
           beatId: item.itemId,
           license: item.license,
         })),
-        returnUrl: window.location.origin,
+        returnUrl: getCheckoutReturnUrl(),
       },
     });
 

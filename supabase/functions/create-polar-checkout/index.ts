@@ -1,31 +1,37 @@
 import { Polar } from "npm:@polar-sh/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const allowedOrigins = (
-  Deno.env.get("ALLOWED_APP_ORIGINS") ??
-  [
-    "http://127.0.0.1:4327",
-    "http://localhost:4327",
-    "http://127.0.0.1:4329",
-    "http://localhost:4329",
-    "http://127.0.0.1:4330",
-    "http://localhost:4330",
-    "https://landoffire99.lovable.app",
-    "https://landoffire99.vercel.app",
-    "https://voidarchive.xyz",
-    "https://www.voidarchive.xyz",
-  ].join(",")
-)
+const builtInAllowedOrigins = [
+  "http://127.0.0.1:4327",
+  "http://localhost:4327",
+  "http://127.0.0.1:4329",
+  "http://localhost:4329",
+  "http://127.0.0.1:4330",
+  "http://localhost:4330",
+  "https://landoffire99.lovable.app",
+  "https://landoffire99.vercel.app",
+  "https://voidarchive.xyz",
+  "https://www.voidarchive.xyz",
+];
+
+const configuredAllowedOrigins = (Deno.env.get("ALLOWED_APP_ORIGINS") ?? "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+const allowedOrigins = [...new Set([...builtInAllowedOrigins, ...configuredAllowedOrigins])];
+
+const fallbackReturnOrigin =
+  Deno.env.get("PUBLIC_APP_URL")?.trim() ||
+  Deno.env.get("APP_URL")?.trim() ||
+  "https://voidarchive.xyz";
 
 const getAllowedOrigin = (origin: string | null) => {
   if (origin && allowedOrigins.includes(origin)) {
     return origin;
   }
 
-  return allowedOrigins[0] ?? "http://127.0.0.1:4327";
+  return allowedOrigins[0] ?? fallbackReturnOrigin;
 };
 
 const buildCorsHeaders = (origin: string | null) => ({
@@ -75,13 +81,15 @@ const sanitizeCartItems = (value: unknown): CheckoutCartItem[] => {
 };
 
 const normalizeReturnUrl = (value: unknown) => {
-  if (typeof value !== "string" || !value.trim()) return null;
+  if (typeof value !== "string" || !value.trim()) {
+    return fallbackReturnOrigin;
+  }
 
   try {
     const url = new URL(value);
-    return allowedOrigins.includes(url.origin) ? url.origin : null;
+    return allowedOrigins.includes(url.origin) ? url.origin : fallbackReturnOrigin;
   } catch {
-    return null;
+    return fallbackReturnOrigin;
   }
 };
 
@@ -161,12 +169,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!returnUrl) {
-      return new Response(JSON.stringify({ error: "Invalid returnUrl" }), {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
     const { payload, signature } = await signCartItems(cartItems);
 
     const checkout = await polar.checkouts.create({
