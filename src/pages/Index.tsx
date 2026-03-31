@@ -1684,7 +1684,22 @@ const Index = () => {
     artwork: createEmptyStoreUploadDraft(),
   });
 
-  const allBeats = useMemo(() => [...beats, ...uploadedBeats], [uploadedBeats]);
+  const allBeats = useMemo(() => {
+    const seenIds = new Set<string>();
+    const seenTitles = new Set<string>();
+
+    return [...beats, ...uploadedBeats].filter((beat) => {
+      const normalizedTitle = beat.title.trim().toLowerCase();
+
+      if (seenIds.has(beat.id) || seenTitles.has(normalizedTitle)) {
+        return false;
+      }
+
+      seenIds.add(beat.id);
+      seenTitles.add(normalizedTitle);
+      return true;
+    });
+  }, [uploadedBeats]);
   const storefrontConfigSnapshot = useMemo(
     () =>
       serializeStorefrontSiteConfig({
