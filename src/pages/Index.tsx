@@ -450,18 +450,6 @@ const beats: Beat[] = [
     exclusivePurchaseUrl: "/zips/6th%20angel%20149%20ejcertified.zip",
   },
   {
-    id: "98",
-    title: "98",
-    artist: "EJCERTIFIED",
-    bpm: 146,
-    musicalKey: "Unlisted",
-    tags: ["Untagged"],
-    imageUrl: publicFolderAsset("iamges", "download (11).jpg"),
-    previewUrl: "/audio/98-146bpm-ejcertified.mp3",
-    purchaseUrl: "/audio/98-146bpm-ejcertified.mp3",
-    exclusivePurchaseUrl: "/zips/98%20146bpm%20ejcertified.zip",
-  },
-  {
     id: "death-notes",
     title: "DEATH NOTES",
     artist: "EJCERTIFIED",
