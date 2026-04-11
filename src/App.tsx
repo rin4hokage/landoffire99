@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CustomCursor } from "@/components/ui/custom-cursor";
+import { InteractiveShaderBackground } from "@/components/ui/interactive-shader-background";
 import Auth from "./pages/Auth.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -14,6 +16,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <InteractiveShaderBackground />
+        <CustomCursor />
         <Toaster />
         <Sonner />
         <BrowserRouter>

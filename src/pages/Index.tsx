@@ -30,6 +30,15 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { Reveal } from "@/components/ui/reveal";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { BeatMarquee } from "@/components/ui/beat-marquee";
+import { WordReveal } from "@/components/ui/word-reveal";
+import { BeatCardTilt } from "@/components/ui/beat-card-tilt";
+import { Waveform } from "@/components/ui/waveform";
+import { FeaturedCoverflow } from "@/components/ui/featured-coverflow";
+import { VoidCommandPalette } from "@/components/ui/void-command-palette";
+import Floating, { FloatingElement } from "@/components/ui/parallax-floating";
 
 type SectionId = "home" | "beats" | "drumkits" | "loops" | "artwork" | "contact" | "socials" | "terms" | "signin" | "signup" | "profile" | "checkout";
 type LicenseName = "Basic Lease" | "Exclusive Lease" | "Loop Pack";
@@ -1373,7 +1382,7 @@ const StoreSection = ({
       <div className={showSimpleHeader ? undefined : "void-store-pagehead-content"}>
         {!showSimpleHeader ? (
           <>
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">{sectionConfig.eyebrow}</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">{sectionConfig.eyebrow}</p>
             <h1 className="void-store-page-title void-store-page-title-beats">{title}</h1>
             <p className="void-store-page-subtitle">by ejcertified</p>
             <p className="void-store-page-copy">{sectionConfig.subtitle}</p>
@@ -1385,7 +1394,7 @@ const StoreSection = ({
       </div>
       {adminUnlocked ? (
         <div className="void-store-page-actions flex-wrap justify-center">
-          <button type="button" onClick={onToggleUploadManager} className="inline-flex items-center gap-2 rounded-full bg-[#ff8a63] px-4 py-3 text-sm font-semibold text-white">
+          <button type="button" onClick={onToggleUploadManager} className="inline-flex items-center gap-2 rounded-full bg-[#dc2626] px-4 py-3 text-sm font-semibold text-white">
             <Upload size={16} />
             Add {title}
           </button>
@@ -1448,7 +1457,7 @@ const StoreSection = ({
       <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Admin Featured {title}</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">Admin Featured {title}</p>
             <p className="mt-2 text-sm text-white/58">Select up to 3 {title.toLowerCase()} to show on the homepage.</p>
           </div>
           <span className="rounded-full bg-white/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
@@ -1464,7 +1473,7 @@ const StoreSection = ({
                 onClick={() => onToggleFeatured(item.id)}
                 className={`rounded-2xl border px-4 py-3 text-left text-sm ${
                   featuredIds.includes(item.id)
-                    ? "border-[#ff8a63]/60 bg-[#ff8a63]/12 text-white"
+                    ? "border-[#dc2626]/60 bg-[#dc2626]/12 text-white"
                     : "border-white/8 bg-white/[0.03] text-white/72"
                 }`}
               >
@@ -1488,7 +1497,7 @@ const StoreSection = ({
           </div>
         ) : (
           <>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">{title}</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">{title}</p>
             <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">{sectionConfig.emptyTitle}</h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/64 sm:text-base">{sectionConfig.emptyCopy}</p>
           </>
@@ -1513,7 +1522,7 @@ const StoreSection = ({
                   type="button"
                   onClick={() => onToggleFeatured(item.id)}
                   className={`mt-2 inline-flex rounded-full px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] ${
-                    featuredIds.includes(item.id) ? "bg-[#ff8a63] text-white" : "bg-white/8 text-white/60"
+                    featuredIds.includes(item.id) ? "bg-[#dc2626] text-white" : "bg-white/8 text-white/60"
                   }`}
                 >
                   {featuredIds.includes(item.id) ? "Featured" : "Add To Featured"}
@@ -1534,7 +1543,7 @@ const StoreSection = ({
                 <button
                   type="button"
                   onClick={() => toggleFavorite(item.id)}
-                  className={`void-product-pill ${favorites.includes(item.id) ? "bg-[#ff8a63] text-white" : "bg-white/8 text-white/70"}`}
+                  className={`void-product-pill ${favorites.includes(item.id) ? "bg-[#dc2626] text-white" : "bg-white/8 text-white/70"}`}
                 >
                   <Heart size={14} fill={favorites.includes(item.id) ? "currentColor" : "none"} />
                   Favorite
@@ -1573,6 +1582,191 @@ const StoreSection = ({
   );
 };
 
+const VoidHero = () => {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const heroAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastVideoTimeRef = useRef(0);
+  const targetVolumeRef = useRef(1);
+  const currentVolumeRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const userMutedRef = useRef(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const toggleMute = () => {
+    const audio = heroAudioRef.current;
+    if (!audio) return;
+    if (audio.muted) {
+      audio.muted = false;
+      userMutedRef.current = false;
+      setIsMuted(false);
+      if (audio.paused) void audio.play().catch(() => {});
+    } else {
+      audio.muted = true;
+      userMutedRef.current = true;
+      setIsMuted(true);
+    }
+  };
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    const video = videoRef.current;
+    const audio = heroAudioRef.current;
+    if (!section || !video || !audio) return;
+
+    // Start muted so the browser allows autoplay (muted media autoplays freely),
+    // then unmute on first interaction. Volume is controlled by scroll position.
+    audio.muted = true;
+    audio.volume = 1;
+    audio.loop = false; // video loop drives the audio restart
+
+    // Smoothly approach the scroll-target volume each frame (eased fade)
+    const animate = () => {
+      const diff = targetVolumeRef.current - currentVolumeRef.current;
+      if (Math.abs(diff) > 0.001) {
+        currentVolumeRef.current += diff * 0.08;
+        const clamped = Math.max(0, Math.min(1, currentVolumeRef.current));
+        try {
+          audio.volume = clamped;
+        } catch {
+          // ignore — volume can throw mid-load
+        }
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+
+    // Scroll-driven target volume: 1 when hero fully on screen, 0 when scrolled past
+    const updateScrollVolume = () => {
+      const rect = section.getBoundingClientRect();
+      const height = rect.height || 1;
+      const ratio = Math.max(0, Math.min(1, rect.bottom / height));
+      targetVolumeRef.current = ratio;
+    };
+    updateScrollVolume();
+    window.addEventListener("scroll", updateScrollVolume, { passive: true });
+    window.addEventListener("resize", updateScrollVolume);
+
+    // Audio restarts in sync with each video loop wrap
+    const handleTimeUpdate = () => {
+      if (video.currentTime + 0.1 < lastVideoTimeRef.current) {
+        audio.currentTime = 0;
+        void audio.play().catch(() => {});
+      }
+      lastVideoTimeRef.current = video.currentTime;
+    };
+    video.addEventListener("timeupdate", handleTimeUpdate);
+
+    // Try to play on mount — muted, so this is allowed by all browsers
+    void video.play().catch(() => {});
+    void audio.play().catch(() => {});
+
+    // Unlock audio (unmute) on the first hover/click/touch/key — local OR global.
+    // Skip if the user has manually muted via the widget.
+    const unlock = () => {
+      if (!audio.muted || userMutedRef.current) return;
+      audio.muted = false;
+      setIsMuted(false);
+      if (audio.paused) {
+        void audio.play().catch(() => {
+          // Browser still blocked us — revert and try again next interaction
+          audio.muted = true;
+          setIsMuted(true);
+        });
+      }
+    };
+
+    // Section-level: hover or any pointer activity
+    section.addEventListener("pointerenter", unlock);
+    section.addEventListener("pointerover", unlock);
+    section.addEventListener("mouseenter", unlock);
+    section.addEventListener("mousemove", unlock);
+    section.addEventListener("touchstart", unlock, { passive: true });
+
+    // Document-level: any first interaction anywhere unlocks audio
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("pointermove", unlock);
+    document.addEventListener("keydown", unlock);
+    document.addEventListener("touchstart", unlock, { passive: true });
+    document.addEventListener("scroll", unlock, { passive: true });
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("scroll", updateScrollVolume);
+      window.removeEventListener("resize", updateScrollVolume);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      section.removeEventListener("pointerenter", unlock);
+      section.removeEventListener("pointerover", unlock);
+      section.removeEventListener("mouseenter", unlock);
+      section.removeEventListener("mousemove", unlock);
+      section.removeEventListener("touchstart", unlock);
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("pointermove", unlock);
+      document.removeEventListener("keydown", unlock);
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("scroll", unlock);
+      audio.pause();
+    };
+  }, []);
+
+  return (
+    <section
+      ref={sectionRef}
+      className="relative h-[85vh] min-h-[520px] overflow-hidden"
+      style={{
+        marginLeft: "calc(50% - 50vw)",
+        marginRight: "calc(50% - 50vw)",
+        marginTop: "-1.4rem",
+        width: "100vw",
+      }}
+    >
+      <video
+        ref={videoRef}
+        src="/video/void-hero.mp4"
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      {/* Gradient overlay for text legibility — darker top + bottom, lighter middle */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/15 to-black/75" />
+      {/* Centered title */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center">
+        <h1 className="font-semibold text-white drop-shadow-[0_6px_28px_rgba(0,0,0,0.85)]">
+          <span className="block text-3xl tracking-[0.18em] uppercase text-white/90 md:text-5xl">
+            Welcome to
+          </span>
+          <span className="mt-2 block text-6xl font-bold leading-none md:text-[8rem]">
+            VOID ARCHIVE
+          </span>
+        </h1>
+      </div>
+      {/* Equalizer audio indicator — clickable to toggle mute */}
+      <button
+        type="button"
+        onClick={toggleMute}
+        className={`void-eq-widget ${isMuted ? "is-muted" : ""}`}
+        aria-label={isMuted ? "Enable hero sound" : "Mute hero sound"}
+        aria-pressed={!isMuted}
+      >
+        <span className="void-eq-bars" aria-hidden="true">
+          <span className="void-eq-bar" style={{ animationDuration: "0.72s", animationDelay: "0s" }} />
+          <span className="void-eq-bar" style={{ animationDuration: "0.94s", animationDelay: "0.18s" }} />
+          <span className="void-eq-bar" style={{ animationDuration: "0.6s", animationDelay: "0.05s" }} />
+          <span className="void-eq-bar" style={{ animationDuration: "1.08s", animationDelay: "0.27s" }} />
+          <span className="void-eq-bar" style={{ animationDuration: "0.82s", animationDelay: "0.12s" }} />
+        </span>
+        <span className="void-eq-text">
+          <span className="void-eq-dot" aria-hidden="true" />
+          <span className="void-eq-label">{isMuted ? "Tap For Sound" : "Audio Live"}</span>
+        </span>
+      </button>
+      <audio ref={heroAudioRef} src="/audio/void-hero-audio.mp3" preload="auto" />
+    </section>
+  );
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
@@ -1581,6 +1775,9 @@ const Index = () => {
   const queueItemsRef = useRef<StoreItem[]>([]);
   const allBeatsRef = useRef<Beat[]>(beats);
   const [activeSection, setActiveSection] = useState<SectionId>("home");
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [pendingScrollBeatId, setPendingScrollBeatId] = useState<string | null>(null);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [selectedBeatId, setSelectedBeatId] = useState(beats[0].id);
   const [uploadedBeats, setUploadedBeats] = useState<Beat[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1708,6 +1905,30 @@ const Index = () => {
   useEffect(() => {
     allBeatsRef.current = allBeats;
   }, [allBeats]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setHeaderScrolled(window.scrollY > 60);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // After navigating to the beats section from somewhere else (e.g. the
+  // marquee under the hero), scroll the targeted beat card into view so
+  // the user can see exactly which beat they picked.
+  useEffect(() => {
+    if (!pendingScrollBeatId || activeSection !== "beats") return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector(`[data-beat-id="${pendingScrollBeatId}"]`);
+      if (el && el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      setPendingScrollBeatId(null);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [activeSection, pendingScrollBeatId]);
 
   const syncBeatTagsToCache = (nextBeatTags: Record<string, string[]>) => {
     setBeatTags(nextBeatTags);
@@ -2760,65 +2981,136 @@ const Index = () => {
 
   const renderLicenseReferenceCard = () => (
     <section className="rounded-[32px] border border-white/8 bg-[linear-gradient(180deg,rgba(17,17,19,0.96),rgba(8,8,10,0.98))] p-6 sm:p-7">
-      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[1.1fr_1.1fr_auto]">
-        <div className="space-y-4">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Choose Your License</p>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-2xl font-semibold text-white">Basic Lease</h3>
-                <p className="mt-1 text-sm text-white/58">Perfect for creators</p>
-              </div>
-              <span className="rounded-full bg-[#ff8a63] px-4 py-2 text-sm font-semibold text-white">$20</span>
+      <div className="mb-7 text-center">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Licensing</p>
+        <h2 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Lease or Own</h2>
+        <p className="mt-3 text-sm text-white/58">Two ways to use the beats. Pick what fits your release.</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Basic Lease — Most Popular */}
+        <motion.div
+          whileHover={{ y: -6, scale: 1.012 }}
+          transition={{ type: "spring", stiffness: 240, damping: 22 }}
+          className="void-license-card void-license-card-popular relative rounded-[26px] border border-[#dc2626]/35 bg-[linear-gradient(180deg,rgba(28,12,12,0.85),rgba(10,8,9,0.96))] p-6"
+        >
+          <div className="void-license-popular-badge">
+            <span className="void-license-popular-dot" />
+            Most Popular
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-semibold text-white">Basic Lease</h3>
+              <p className="mt-1 text-sm text-white/58">Perfect for creators</p>
             </div>
-            <ul className="mt-5 space-y-2 text-sm text-white/72">
-              {LICENSE_REFERENCE_ROWS.basic.map((row) => (
-                <li key={row} className="flex items-start gap-2">
-                  <Check size={16} className="mt-0.5 text-[#ff8a63]" />
-                  <span>{row}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-5 rounded-2xl border border-[#ff8a63]/18 bg-[#181111] p-4 text-sm text-white/72">
-              <p className="font-semibold text-white">Credit required</p>
-              <p className="mt-1">&quot;Prod. ejcertified&quot;</p>
-              <p className="mt-3 text-white/55">Best for TikTok, YouTube, streaming, and up to 2 artist or project uses.</p>
+            <div className="text-right">
+              <span className="block text-3xl font-bold text-white">$20</span>
+              <span className="text-[10px] uppercase tracking-[0.18em] text-white/45">one-time</span>
             </div>
           </div>
-        </div>
-        <div className="space-y-4">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Ownership Option</p>
-          <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-2xl font-semibold text-white">Exclusive</h3>
-                <p className="mt-1 text-sm text-white/58">All rights, all use</p>
-              </div>
-              <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">$100</span>
+          <motion.ul
+            className="mt-6 space-y-3 text-sm text-white/78"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-40px" }}
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+            }}
+          >
+            {LICENSE_REFERENCE_ROWS.basic.map((row) => (
+              <motion.li
+                key={row}
+                variants={{
+                  hidden: { opacity: 0, x: -8 },
+                  visible: { opacity: 1, x: 0 },
+                }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-start gap-3"
+              >
+                <span className="void-license-check">
+                  <Check size={12} strokeWidth={3.5} />
+                </span>
+                <span>{row}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+          <div className="mt-6 rounded-2xl border border-[#dc2626]/22 bg-[#181111] p-4 text-sm text-white/72">
+            <p className="font-semibold text-white">Credit required</p>
+            <p className="mt-1 font-mono text-[12px] tracking-[0.04em] text-[#f87171]">&quot;Prod. ejcertified&quot;</p>
+            <p className="mt-3 text-white/55">Best for TikTok, YouTube, streaming, and up to 2 artist or project uses.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSection("beats")}
+            className="void-license-cta mt-6 w-full"
+          >
+            Browse Beats
+          </button>
+        </motion.div>
+
+        {/* Exclusive */}
+        <motion.div
+          whileHover={{ y: -6, scale: 1.012 }}
+          transition={{ type: "spring", stiffness: 240, damping: 22 }}
+          className="void-license-card relative rounded-[26px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.85),rgba(10,10,12,0.96))] p-6"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-2xl font-semibold text-white">Exclusive</h3>
+              <p className="mt-1 text-sm text-white/58">All rights, all use</p>
             </div>
-            <ul className="mt-5 space-y-2 text-sm text-white/72">
-              {LICENSE_REFERENCE_ROWS.exclusive.map((row) => (
-                <li key={row} className="flex items-start gap-2">
-                  <Check size={16} className="mt-0.5 text-[#ff8a63]" />
-                  <span>{row}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-5 rounded-2xl border border-white/8 bg-[#121216] p-4 text-sm text-white/72">
-              <p className="font-semibold text-white">No credit required</p>
-              <p className="mt-1">Own it completely and release it commercially without restrictions.</p>
-              <p className="mt-3 text-white/55">Best for full commercial drops, albums, and permanent use.</p>
+            <div className="text-right">
+              <span className="block text-3xl font-bold text-white">$100</span>
+              <span className="text-[10px] uppercase tracking-[0.18em] text-white/45">one-time</span>
             </div>
           </div>
-        </div>
-        <div className="flex flex-col justify-between gap-3 xl:items-end">
-          <button type="button" onClick={() => setActiveSection("terms")} className="void-store-pill-button">
-            Full Terms
+          <motion.ul
+            className="mt-6 space-y-3 text-sm text-white/78"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-40px" }}
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.08, delayChildren: 0.18 } },
+            }}
+          >
+            {LICENSE_REFERENCE_ROWS.exclusive.map((row) => (
+              <motion.li
+                key={row}
+                variants={{
+                  hidden: { opacity: 0, x: -8 },
+                  visible: { opacity: 1, x: 0 },
+                }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-start gap-3"
+              >
+                <span className="void-license-check">
+                  <Check size={12} strokeWidth={3.5} />
+                </span>
+                <span>{row}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+          <div className="mt-6 rounded-2xl border border-white/8 bg-[#121216] p-4 text-sm text-white/72">
+            <p className="font-semibold text-white">No credit required</p>
+            <p className="mt-1">Own it completely and release it commercially without restrictions.</p>
+            <p className="mt-3 text-white/55">Best for full commercial drops, albums, and permanent use.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSection("beats")}
+            className="void-license-cta void-license-cta-secondary mt-6 w-full"
+          >
+            Browse Beats
           </button>
-          <button type="button" onClick={() => setActiveSection("checkout")} className="void-dashboard-primary">
-            Learn More
-          </button>
-        </div>
+        </motion.div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-center">
+        <button type="button" onClick={() => setActiveSection("terms")} className="text-[11px] uppercase tracking-[0.22em] text-white/45 transition hover:text-[#f87171]">
+          Read Full Terms →
+        </button>
       </div>
     </section>
   );
@@ -2826,7 +3118,7 @@ const Index = () => {
   const renderArtistBioSection = () => (
     <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
       <div className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
-        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">About the Producer</p>
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">About the Producer</p>
         <div className="mt-5">
           <div>
             <h2 className="text-3xl font-semibold text-white sm:text-4xl">EJCERTIFIED</h2>
@@ -2852,7 +3144,7 @@ const Index = () => {
         </div>
       </div>
       <div className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
-        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Email List</p>
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Email List</p>
         <h2 className="mt-4 text-2xl font-semibold text-white sm:text-3xl">Get beat drops straight to your inbox</h2>
         <p className="mt-3 text-sm leading-7 text-white/62">Subscribe to get 10% off your first beat and hear about new drops first.</p>
         <form onSubmit={(event) => void submitEmailSignup(event)} className="mt-6 space-y-3">
@@ -2881,69 +3173,196 @@ const Index = () => {
     </section>
   );
 
-  const renderProducerBioSection = () => (
-    <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
-      <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">About the Producer</p>
-      <div className="mt-5">
-        <div>
-          <h2 className="text-3xl font-semibold text-white sm:text-4xl">EJCERTIFIED</h2>
-          <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/42">Houston, Texas</p>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
-            Authentic production built for artists, producers, and listeners who want a harder sound with real replay value.
-          </p>
+  const renderProducerBioSection = () => {
+    // Pull up to 6 beat covers to float around the bio. Falls back to nothing
+    // if there aren't enough beats with images yet.
+    const floatingBeats = allBeats
+      .filter((beat) => Boolean(getBeatImageUrl(beat)))
+      .slice(0, 6);
+
+    return (
+    <section className="relative overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
+      {/* Parallax floating beat covers behind the bio text */}
+      {floatingBeats.length > 0 ? (
+        <Floating sensitivity={-1.2} className="pointer-events-none">
+          {floatingBeats[0] ? (
+            <FloatingElement depth={0.6} className="top-[10%] left-[6%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[0])}
+                alt=""
+                className="h-20 w-20 rounded-xl border border-white/10 object-cover opacity-50 shadow-[0_18px_44px_rgba(0,0,0,0.55)] md:h-24 md:w-24"
+              />
+            </FloatingElement>
+          ) : null}
+          {floatingBeats[1] ? (
+            <FloatingElement depth={1.4} className="top-[6%] right-[10%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[1])}
+                alt=""
+                className="h-24 w-24 rounded-xl border border-white/10 object-cover opacity-55 shadow-[0_18px_44px_rgba(0,0,0,0.55)] md:h-32 md:w-32"
+              />
+            </FloatingElement>
+          ) : null}
+          {floatingBeats[2] ? (
+            <FloatingElement depth={2.2} className="top-[58%] right-[5%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[2])}
+                alt=""
+                className="h-28 w-28 rounded-xl border border-[#dc2626]/25 object-cover opacity-60 shadow-[0_20px_50px_rgba(0,0,0,0.6)] md:h-36 md:w-36"
+              />
+            </FloatingElement>
+          ) : null}
+          {floatingBeats[3] ? (
+            <FloatingElement depth={1} className="top-[60%] left-[8%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[3])}
+                alt=""
+                className="h-20 w-20 rounded-xl border border-white/10 object-cover opacity-50 shadow-[0_18px_44px_rgba(0,0,0,0.55)] md:h-28 md:w-28"
+              />
+            </FloatingElement>
+          ) : null}
+          {floatingBeats[4] ? (
+            <FloatingElement depth={0.8} className="top-[36%] right-[28%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[4])}
+                alt=""
+                className="h-16 w-16 rounded-xl border border-white/10 object-cover opacity-40 shadow-[0_14px_36px_rgba(0,0,0,0.55)] md:h-20 md:w-20"
+              />
+            </FloatingElement>
+          ) : null}
+          {floatingBeats[5] ? (
+            <FloatingElement depth={1.6} className="top-[40%] left-[26%]">
+              <img
+                src={getBeatImageUrl(floatingBeats[5])}
+                alt=""
+                className="h-16 w-16 rounded-xl border border-[#dc2626]/22 object-cover opacity-45 shadow-[0_16px_38px_rgba(0,0,0,0.55)] md:h-24 md:w-24"
+              />
+            </FloatingElement>
+          ) : null}
+        </Floating>
+      ) : null}
+      {/* Subtle vignette over the floating layer so the text stays readable */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0)_30%,rgba(0,0,0,0.78)_75%)]" />
+      <div className="relative z-10">
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">About the Producer</p>
+        <div className="mt-5">
+          <div>
+            <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+              <WordReveal text="EJCERTIFIED" />
+            </h2>
+            <p className="mt-2 text-sm uppercase tracking-[0.24em] text-white/42">
+              <WordReveal text="Houston, Texas" delay={0.15} />
+            </p>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/68 sm:text-base">
+              <WordReveal
+                text="Authentic production built for artists, producers, and listeners who want a harder sound with real replay value."
+                delay={0.3}
+              />
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {socialLinks.tiktok ? (
+            <a href={socialLinks.tiktok} target="_blank" rel="noreferrer" className="void-dashboard-primary">
+              <Music2 size={16} />
+              TikTok @ejcertified_
+            </a>
+          ) : null}
+          {socialLinks.instagram ? (
+            <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-pill-button">
+              <Instagram size={16} />
+              Instagram @ejcertified_
+            </a>
+          ) : null}
         </div>
       </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        {socialLinks.tiktok ? (
-          <a href={socialLinks.tiktok} target="_blank" rel="noreferrer" className="void-dashboard-primary">
-            <Music2 size={16} />
-            TikTok @ejcertified_
-          </a>
-        ) : null}
-        {socialLinks.instagram ? (
-          <a href={socialLinks.instagram} target="_blank" rel="noreferrer" className="void-store-pill-button">
-            <Instagram size={16} />
-            Instagram @ejcertified_
-          </a>
-        ) : null}
-      </div>
     </section>
-  );
+    );
+  };
 
   const renderEmailSignupSection = () => (
     <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,20,0.96),rgba(10,10,12,0.98))] p-6 sm:p-7">
-      <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Email List</p>
+      <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Email List</p>
       <h2 className="mt-4 text-2xl font-semibold text-white sm:text-3xl">Get beat drops straight to your inbox</h2>
       <p className="mt-3 text-sm leading-7 text-white/62">Subscribe to get 10% off your first beat and hear about new drops first.</p>
-      <form onSubmit={(event) => void submitEmailSignup(event)} className="mt-6 space-y-3">
-        <input
-          value={emailSignup}
-          onChange={(event) => {
-            setEmailSignup(event.target.value);
-            if (emailSignupState !== "idle") setEmailSignupState("idle");
-          }}
-          type="email"
-          placeholder="Your email"
-          className="void-dashboard-input"
-        />
-        <button type="submit" className="void-dashboard-primary w-full justify-center">
-          {emailSignupState === "saving" ? "Saving..." : "Get 10% Off"}
-        </button>
-      </form>
-      <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/42">
-        {emailSignupState === "saved"
-          ? "Saved. You'll be first to know."
-          : emailSignupState === "error"
-            ? "Signup captured. We'll connect live email delivery next."
-            : "First-time buyers can get VOID10."}
-      </p>
+      <AnimatePresence mode="wait" initial={false}>
+        {emailSignupState === "saved" ? (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="void-email-success"
+          >
+            <motion.div
+              className="void-email-success-check"
+              initial={{ scale: 0, rotate: -45 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.05 }}
+            >
+              <Check size={32} strokeWidth={3} />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.4 }}
+            >
+              <p className="void-email-success-title">You&apos;re on the list</p>
+              <p className="void-email-success-sub mt-1">First to hear every drop</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <span className="void-email-success-code">10% OFF · VOID10</span>
+            </motion.div>
+          </motion.div>
+        ) : (
+          <motion.form
+            key="form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            onSubmit={(event) => void submitEmailSignup(event)}
+            className="mt-6 space-y-3"
+          >
+            <div className="void-email-input-wrap">
+              <input
+                value={emailSignup}
+                onChange={(event) => {
+                  setEmailSignup(event.target.value);
+                  if (emailSignupState !== "idle") setEmailSignupState("idle");
+                }}
+                type="email"
+                placeholder="Your email"
+                className="void-dashboard-input"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={emailSignupState === "saving"}
+              className="void-dashboard-primary w-full justify-center disabled:opacity-70"
+            >
+              {emailSignupState === "saving" ? "Saving..." : "Get 10% Off"}
+            </button>
+            <p className="mt-3 text-xs uppercase tracking-[0.18em] text-white/42">
+              {emailSignupState === "error"
+                ? "Signup captured. We'll connect live email delivery next."
+                : "First-time buyers can get VOID10."}
+            </p>
+          </motion.form>
+        )}
+      </AnimatePresence>
     </section>
   );
 
   const renderTrendingBeatsSection = () => (
     <section className="space-y-4">
       <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Trending This Week</p>
+        <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Trending This Week</p>
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-white sm:text-3xl">Most Popular Right Now</h2>
@@ -2970,7 +3389,7 @@ const Index = () => {
       <section className="rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(16,16,18,0.9),rgba(10,10,12,0.98))] p-5 sm:p-6">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Recent Reviews</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Recent Reviews</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">{selectedBeat.title}</h2>
           </div>
           <div className="rounded-full bg-white/[0.05] px-4 py-2 text-sm text-white/72">
@@ -3617,16 +4036,35 @@ const Index = () => {
     const beatImage = getBeatImageUrl(beat);
     const isUploadedBeat = uploadedBeats.some((entry) => entry.id === beat.id);
 
+    const isSelected = selectedBeat.id === beat.id;
     return (
-      <motion.button
+      <BeatCardTilt
         key={beat.id}
-        type="button"
+        dataBeatId={beat.id}
         onClick={() => setSelectedBeatId(beat.id)}
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className={`void-dashboard-card void-product-card flex h-full flex-col text-left ${selectedBeat.id === beat.id ? "ring-2 ring-[#ff9f7e]/70" : ""} ${layoutClass}`}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setSelectedBeatId(beat.id);
+          }
+        }}
+        className={`void-dashboard-card void-product-card relative flex h-full cursor-pointer flex-col text-left ${isSelected ? "ring-2 ring-[#ef4444]/70" : ""} ${layoutClass}`}
       >
+        {isSelected ? (
+          <motion.span
+            key={`pulse-${beat.id}`}
+            className="pointer-events-none absolute inset-0 rounded-[inherit]"
+            initial={{ boxShadow: "0 0 0 0 rgba(220, 38, 38, 0.7)" }}
+            animate={{
+              boxShadow: [
+                "0 0 0 0 rgba(220, 38, 38, 0.75)",
+                "0 0 0 14px rgba(220, 38, 38, 0)",
+              ],
+            }}
+            transition={{ duration: 1.4, repeat: 1, ease: "easeOut" }}
+            aria-hidden="true"
+          />
+        ) : null}
             <div className="relative overflow-hidden rounded-[14px]">
               {beatImage ? (
                 <div className="void-product-media overflow-hidden rounded-[14px]">
@@ -3643,6 +4081,8 @@ const Index = () => {
                 }}
                 aria-label={isPlaying ? `Pause ${beat.title}` : `Play ${beat.title}`}
                 className="void-beat-image-play"
+                data-cursor="play"
+                data-cursor-label={isPlaying ? "Pause" : "Preview"}
               >
                 {isPlaying ? <Pause size={20} /> : <Play size={20} />}
               </button>
@@ -3654,7 +4094,7 @@ const Index = () => {
                 BPM: {beat.bpm}
               </p>
               {adminUnlocked && beat.exclusivePurchaseUrl ? (
-                <p className="mt-2 text-[14px] uppercase tracking-[0.18em] text-[#ffb59b]">ZIP Ready</p>
+                <p className="mt-2 text-[14px] uppercase tracking-[0.18em] text-[#f87171]">ZIP Ready</p>
               ) : null}
               {beatCardTags.length > 0 ? (
                 <div className="void-beat-card-tags mt-3 flex flex-wrap gap-2">
@@ -3666,9 +4106,9 @@ const Index = () => {
                 </div>
               ) : null}
               {adminUnlocked ? (
-                <div className="mt-3 rounded-[16px] border border-[#ff9f7e]/20 bg-[#171214]/88 p-2.5">
+                <div className="mt-3 rounded-[16px] border border-[#ef4444]/20 bg-[#171214]/88 p-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#ffb59b]">Admin Tags</p>
+                    <p className="text-[10px] uppercase tracking-[0.24em] text-[#f87171]">Admin Tags</p>
                     <span className="text-[10px] uppercase tracking-[0.18em] text-white/38">{beatCardTags.length} total</span>
                   </div>
                   <div className="mt-2.5 flex gap-2">
@@ -3692,7 +4132,7 @@ const Index = () => {
                         event.stopPropagation();
                         addTagToBeat(beat.id);
                       }}
-                      className="rounded-full bg-[#ff8a63] px-3 py-2 text-[11px] font-semibold text-white shadow-[0_10px_24px_rgba(255,138,99,0.24)]"
+                      className="rounded-full bg-[#dc2626] px-3 py-2 text-[11px] font-semibold text-white shadow-[0_10px_24px_rgba(220,38,38,0.24)]"
                     >
                       Add
                     </button>
@@ -3735,7 +4175,7 @@ const Index = () => {
                           event.stopPropagation();
                           removeUploadedBeat(beat.id);
                         }}
-                        className="rounded-full bg-[#2a1114] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#ffc1c1]"
+                        className="rounded-full bg-[#2a1114] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#fca5a5]"
                       >
                         Remove Beat
                       </button>
@@ -3745,11 +4185,17 @@ const Index = () => {
               ) : null}
             </div>
             <div className="mt-3">
-              <div className="h-1.5 rounded-full bg-white/10">
-                <div className="h-full rounded-full bg-[#ff8a63]" style={{ width: `${previewProgress[beat.id] ?? 0}%` }} />
+              {isPlaying ? (
+                <Waveform isPlaying={isPlaying} className="mb-2" />
+              ) : null}
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#f87171] via-[#dc2626] to-[#991b1b]"
+                  style={{ width: `${previewProgress[beat.id] ?? 0}%` }}
+                />
               </div>
               {isPlaying ? (
-                <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/48">{secondsRemaining}s remaining</div>
+                <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-[#f87171]">{secondsRemaining}s remaining</div>
               ) : null}
             </div>
             <div className="void-beat-card-actions mt-auto space-y-2.5 pt-3">
@@ -3770,7 +4216,7 @@ const Index = () => {
                     event.stopPropagation();
                     toggleFavorite(beat.id);
                   }}
-                  className={`void-product-pill ${favorites.includes(beat.id) ? "bg-[#ff8a63] text-white" : "bg-white/8 text-white/70"}`}
+                  className={`void-product-pill ${favorites.includes(beat.id) ? "bg-[#dc2626] text-white" : "bg-white/8 text-white/70"}`}
                 >
                   <Heart size={14} fill={favorites.includes(beat.id) ? "currentColor" : "none"} />
                   Favorite
@@ -3817,13 +4263,13 @@ const Index = () => {
                     event.stopPropagation();
                     addToCart(beat);
                   }}
-                  className="inline-flex w-full items-center justify-center rounded-full bg-[#ff9f7e] px-3 py-2.5 text-[13px] font-semibold text-white"
+                  className="inline-flex w-full items-center justify-center rounded-full bg-[#ef4444] px-3 py-2.5 text-[13px] font-semibold text-white"
                 >
                   Add To Cart
                 </button>
               </div>
             </div>
-      </motion.button>
+      </BeatCardTilt>
     );
   };
 
@@ -3858,18 +4304,25 @@ const Index = () => {
     const price = item.price ?? 5;
 
     return (
-      <motion.button
+      <motion.div
         key={item.id}
-        type="button"
+        role="button"
+        tabIndex={0}
         onClick={() => {
           if (item.previewUrl) {
+            void playStorePreview(item);
+          }
+        }}
+        onKeyDown={(event) => {
+          if ((event.key === "Enter" || event.key === " ") && item.previewUrl) {
+            event.preventDefault();
             void playStorePreview(item);
           }
         }}
         initial={{ opacity: 0, y: 18, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className={`void-dashboard-card void-product-card flex h-full flex-col text-left ${layoutClass}`}
+        className={`void-dashboard-card void-product-card flex h-full cursor-pointer flex-col text-left ${layoutClass}`}
       >
         <div className="relative overflow-hidden rounded-[14px]">
           {item.imageUrl ? (
@@ -3911,7 +4364,7 @@ const Index = () => {
         </div>
         <div className="mt-3">
           <div className="h-1.5 rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-[#ff8a63]" style={{ width: `${previewProgress[item.id] ?? 0}%` }} />
+            <div className="h-full rounded-full bg-[#dc2626]" style={{ width: `${previewProgress[item.id] ?? 0}%` }} />
           </div>
           {isPlaying && secondsRemaining !== null ? (
             <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/48">{secondsRemaining}s remaining</div>
@@ -3935,7 +4388,7 @@ const Index = () => {
                 event.stopPropagation();
                 toggleFavorite(item.id);
               }}
-              className={`void-product-pill ${favorites.includes(item.id) ? "bg-[#ff8a63] text-white" : "bg-white/8 text-white/70"}`}
+              className={`void-product-pill ${favorites.includes(item.id) ? "bg-[#dc2626] text-white" : "bg-white/8 text-white/70"}`}
             >
               <Heart size={14} fill={favorites.includes(item.id) ? "currentColor" : "none"} />
               Favorite
@@ -3966,7 +4419,7 @@ const Index = () => {
             </button>
           </div>
         </div>
-      </motion.button>
+      </motion.div>
     );
   };
 
@@ -4010,7 +4463,7 @@ const Index = () => {
               <div className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black">${price}</div>
             </div>
             <div className="mt-5 h-2 rounded-full bg-white/8">
-              <div className="h-full rounded-full bg-[#ff8a63]" style={{ width: `${previewProgress[beat.id] ?? 0}%` }} />
+              <div className="h-full rounded-full bg-[#dc2626]" style={{ width: `${previewProgress[beat.id] ?? 0}%` }} />
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               <button
@@ -4024,7 +4477,7 @@ const Index = () => {
               <button
                 type="button"
                 onClick={() => toggleFavorite(beat.id)}
-                className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#ff8a63,#ff6f67)] px-5 py-3 text-sm text-white shadow-[0_14px_34px_rgba(255,138,99,0.22)]"
+                className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#dc2626,#dc2626)] px-5 py-3 text-sm text-white shadow-[0_14px_34px_rgba(220,38,38,0.22)]"
               >
                 <Heart size={16} fill="currentColor" />
                 Favorite
@@ -4111,7 +4564,7 @@ const Index = () => {
     adminUnlocked && adminToolOpen["add-beat"] ? (
       <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
         <div className="mb-4">
-          <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">
             {editingBeatId ? "Edit Uploaded Beat" : "Upload Beat"}
           </p>
           <p className="mt-2 text-sm text-white/58">
@@ -4157,7 +4610,7 @@ const Index = () => {
                 {beatUploadDraft.zipUrl ? "ZIP selected" : "Upload zip"}
                 <input type="file" accept=".zip,application/zip,application/x-zip-compressed" onChange={(event) => handleBeatUploadFile("zipUrl", event)} className="hidden" />
               </label>
-              <span className={`rounded-full px-3 py-2 text-[12px] uppercase tracking-[0.18em] ${beatUploadDraft.zipUrl ? "bg-[#ff8a63]/15 text-[#ffb59b]" : "bg-white/6 text-white/45"}`}>
+              <span className={`rounded-full px-3 py-2 text-[12px] uppercase tracking-[0.18em] ${beatUploadDraft.zipUrl ? "bg-[#dc2626]/15 text-[#f87171]" : "bg-white/6 text-white/45"}`}>
                 {beatUploadDraft.zipUrl ? "Exclusive ZIP Ready" : "No ZIP Uploaded"}
               </span>
             </div>
@@ -4187,7 +4640,7 @@ const Index = () => {
       <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Admin Featured Beats</p>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">Admin Featured Beats</p>
             <p className="mt-2 text-sm text-white/58">Select up to 3 beats to feature on the homepage.</p>
           </div>
           <span className="rounded-full bg-white/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
@@ -4202,7 +4655,7 @@ const Index = () => {
               onClick={() => toggleFeaturedBeat(beat.id)}
               className={`rounded-2xl border px-4 py-3 text-left text-sm ${
                 featuredBeatIds.includes(beat.id)
-                  ? "border-[#ff8a63]/60 bg-[#ff8a63]/12 text-white"
+                  ? "border-[#dc2626]/60 bg-[#dc2626]/12 text-white"
                   : "border-white/8 bg-white/[0.03] text-white/72"
               }`}
             >
@@ -4241,7 +4694,7 @@ const Index = () => {
               key={method}
               type="button"
               onClick={() => (isCheckout ? selectCheckoutPaymentMethod(method) : savePaymentMethod(method))}
-              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left ${selectedPaymentMethod === method ? "border-[#ff8a63]/60 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
+              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left ${selectedPaymentMethod === method ? "border-[#dc2626]/60 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
             >
               <span className="inline-flex items-center gap-3">
                 {method === "Cash App" ? <Banknote size={16} /> : <CreditCard size={16} />}
@@ -4342,10 +4795,10 @@ const Index = () => {
         <div
           className={`rounded-[24px] border px-5 py-4 ${
             polarCheckoutState === "error"
-              ? "border-[#ff8c8c]/35 bg-[#2a1114] text-[#ffc1c1]"
+              ? "border-[#f87171]/35 bg-[#2a1114] text-[#fca5a5]"
               : polarCheckoutState === "cancelled"
                 ? "border-white/10 bg-white/[0.03] text-white/72"
-                : "border-[#ff8a63]/25 bg-[#181111] text-[#ffd0bf]"
+                : "border-[#dc2626]/25 bg-[#181111] text-[#fca5a5]"
           }`}
         >
           <p className="text-[11px] uppercase tracking-[0.24em]">Polar Checkout</p>
@@ -4355,7 +4808,7 @@ const Index = () => {
       {checkoutReceipt ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_360px]">
           <div className="void-dashboard-panel p-6 sm:p-7">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Order Confirmed</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Order Confirmed</p>
             <h3 className="mt-3 text-3xl font-semibold text-white">Your beat is secured.</h3>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
               Thank you for supporting EJCERTIFIED. Your order is already saved to My Orders and ready to download.
@@ -4419,7 +4872,7 @@ const Index = () => {
             </div>
           </div>
           <div className="void-dashboard-panel p-6 sm:p-7">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">What Happens Next</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">What Happens Next</p>
             <div className="mt-5 space-y-4 text-sm leading-7 text-white/68">
               <p>Your order is saved to your account and can be reopened from My Orders any time.</p>
               <p>Basic Leases keep the producer credit requirement. Exclusive purchases remove the beat from future sale.</p>
@@ -4446,7 +4899,7 @@ const Index = () => {
       ) : !user ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="void-dashboard-panel p-6 sm:p-7">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Checkout Preview</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Checkout Preview</p>
             <h3 className="mt-3 text-2xl font-semibold text-white">See your order before you sign in.</h3>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
               Your cart is ready. Sign in or create an account when you are ready to pay, save your order, and get the license and download.
@@ -4497,7 +4950,7 @@ const Index = () => {
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
           <div className="void-dashboard-panel p-6 sm:p-7">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Hosted Payment</p>
+            <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Hosted Payment</p>
             <h3 className="mt-3 text-2xl font-semibold text-white">Finish payment on Polar.sh</h3>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-white/62">
               You will be redirected to Polar&apos;s hosted checkout to pay securely. No card or bank details are entered on VOID.
@@ -4548,8 +5001,8 @@ const Index = () => {
                 );
               })}
             </div>
-            <div className="mt-5 rounded-[22px] border border-[#ff8a63]/25 bg-[#181111] p-4">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Upgrade Prompt</p>
+            <div className="mt-5 rounded-[22px] border border-[#dc2626]/25 bg-[#181111] p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">Upgrade Prompt</p>
               <p className="mt-2 text-sm leading-6 text-white/66">
                 Want full ownership? Switch any beat above to Exclusive before checkout and we’ll remove it from future sale.
               </p>
@@ -4574,7 +5027,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-[#141418] p-4">
             <label className="group flex cursor-pointer items-center gap-4">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/10 text-white/60 ring-1 ring-white/8 transition group-hover:ring-[#ff8a63]/55">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/10 text-white/60 ring-1 ring-white/8 transition group-hover:ring-[#dc2626]/55">
                 {profileForm.profilePhoto ? (
                   <img src={profileForm.profilePhoto} alt="Profile" className="h-full w-full object-cover" />
                 ) : (
@@ -4790,7 +5243,7 @@ const Index = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => setProfileTab(tab.id)}
-                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${profileTab === tab.id ? "bg-[#ff8a63] text-white" : "bg-white/6 text-white/72"}`}
+                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${profileTab === tab.id ? "bg-[#dc2626] text-white" : "bg-white/6 text-white/72"}`}
               >
                 <Icon size={16} />
                 <span>{tab.label}</span>
@@ -4829,7 +5282,7 @@ const Index = () => {
             </div>
             {adminUnlocked ? (
               <div className="void-store-page-actions flex-wrap justify-center">
-                <button type="button" onClick={() => toggleAdminTool("add-loops")} className="inline-flex items-center gap-2 rounded-full bg-[#ff8a63] px-4 py-3 text-sm font-semibold text-white">
+                <button type="button" onClick={() => toggleAdminTool("add-loops")} className="inline-flex items-center gap-2 rounded-full bg-[#dc2626] px-4 py-3 text-sm font-semibold text-white">
                   <Upload size={16} />
                   Add Loops
                 </button>
@@ -4877,7 +5330,7 @@ const Index = () => {
             <div className="rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(18,18,22,0.96),rgba(10,10,12,0.98))] p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#ffb59b]">Admin Featured Loops</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-[#f87171]">Admin Featured Loops</p>
                   <p className="mt-2 text-sm text-white/58">Select up to 3 loop packs to show on the homepage.</p>
                 </div>
                 <span className="rounded-full bg-white/8 px-3 py-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
@@ -4893,7 +5346,7 @@ const Index = () => {
                       onClick={() => toggleFeaturedStoreItem("loops", item.id)}
                       className={`rounded-2xl border px-4 py-3 text-left text-sm ${
                         featuredStoreItemIds.loops.includes(item.id)
-                          ? "border-[#ff8a63]/60 bg-[#ff8a63]/12 text-white"
+                          ? "border-[#dc2626]/60 bg-[#dc2626]/12 text-white"
                           : "border-white/8 bg-white/[0.03] text-white/72"
                       }`}
                     >
@@ -4981,10 +5434,10 @@ const Index = () => {
                     {contactSubmitState === "sending" ? "Sending..." : "Send Message"}
                   </button>
                   {contactSubmitState === "sent" ? (
-                    <p className="mt-3 text-sm text-[#ffb59b]">Message saved to the admin inbox.</p>
+                    <p className="mt-3 text-sm text-[#f87171]">Message saved to the admin inbox.</p>
                   ) : null}
                   {contactSubmitState === "error" ? (
-                    <p className="mt-3 text-sm text-[#ff9f7e]">Message failed to save. Try again.</p>
+                    <p className="mt-3 text-sm text-[#ef4444]">Message failed to save. Try again.</p>
                   ) : null}
                 </div>
               </form>
@@ -4994,7 +5447,7 @@ const Index = () => {
               <div className="void-dashboard-panel p-6 sm:p-7">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">Admin Inbox</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Admin Inbox</p>
                     <h3 className="mt-2 text-2xl font-semibold text-white">Contact Messages</h3>
                     <p className="mt-2 text-sm leading-6 text-white/60">
                       Messages from the contact page only appear here when admin mode is unlocked.
@@ -5154,7 +5607,7 @@ const Index = () => {
 
           <LegalSection number="4" title="Credit and Attribution Requirements">
             <div className="space-y-4">
-              <div className="rounded-2xl border border-[#ff8a63]/28 bg-[#1a1412] p-4">
+              <div className="rounded-2xl border border-[#dc2626]/28 bg-[#1a1412] p-4">
                 <h3 className="text-lg font-semibold text-white">4.1 Non-Exclusive Credit Requirement</h3>
                 <p className="mt-3">
                   Any song released under a Basic Lease must visibly credit the producer as <strong>“Prod. ejcertified”</strong>,
@@ -5331,73 +5784,109 @@ const Index = () => {
 
       return (
       <div className="space-y-8">
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="void-store-hero"
-        >
-          <div className="void-store-hero-media">
-          </div>
-          <div className="void-store-hero-overlay" />
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12, duration: 0.45, ease: "easeOut" }}
-            className="void-store-hero-copy"
-          >
-            <p className="text-[11px] uppercase tracking-[0.28em] text-[#ffb59b]">EJCERTIFIED PRESENTS</p>
-            <h1 className="void-store-hero-title">
-              <span>VOID</span>
-              <span>ARCHIVE</span>
-            </h1>
-            <div className="void-store-hero-grid">
-              <div className="void-store-hero-column">
-                <div className="void-store-counter-card">
-                  <span className="void-store-counter-label">Beats</span>
-                  <span className="void-store-counter-value">{allBeats.length}</span>
-                </div>
-                <button type="button" onClick={() => setActiveSection("beats")} className="void-store-hero-button w-full">Browse Beats</button>
-              </div>
-              <div className="void-store-hero-column">
-                <div className="void-store-counter-card">
-                  <span className="void-store-counter-label">Drumkits</span>
-                  <span className="void-store-counter-value">{storeItems.filter((item) => item.section === "drumkits").length}</span>
-                </div>
-                <button type="button" onClick={() => setActiveSection("drumkits")} className="void-store-hero-button w-full">Browse Drumkits</button>
-              </div>
-              <div className="void-store-hero-column">
-                <div className="void-store-counter-card">
-                  <span className="void-store-counter-label">Loops</span>
-                  <span className="void-store-counter-value">{storeItems.filter((item) => item.section === "loops").length}</span>
-                </div>
-                <button type="button" onClick={() => setActiveSection("loops")} className="void-store-hero-button w-full">Browse Loops</button>
-              </div>
-              <div className="void-store-hero-column void-store-hero-column-wide">
-                <div className="void-store-counter-card">
-                  <span className="void-store-counter-label">{COMMUNITY_ART_LABEL}</span>
-                  <span className="void-store-counter-value">{storeItems.filter((item) => item.section === "artwork").length}</span>
-                </div>
-                <button type="button" onClick={() => setActiveSection("artwork")} className="void-store-hero-button w-full">Browse Community Art</button>
-              </div>
-            </div>
-          </motion.div>
-        </motion.section>
+        <VoidHero />
 
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white sm:text-3xl">Featured Beats</h2>
-          </div>
-          {renderFeaturedBeatScroller(featuredHomeBeats)}
+        <section
+          aria-label="Beat showcase"
+          style={{
+            marginLeft: "calc(50% - 50vw)",
+            marginRight: "calc(50% - 50vw)",
+            width: "100vw",
+          }}
+        >
+          <BeatMarquee
+            beats={allBeats.map((beat) => ({
+              id: beat.id,
+              title: beat.title,
+              artist: beat.artist,
+              imageUrl: getBeatImageUrl(beat),
+              bpm: beat.bpm,
+            }))}
+            onSelect={(id) => {
+              setSelectedBeatId(id);
+              setPendingScrollBeatId(id);
+              setActiveSection("beats");
+            }}
+          />
         </section>
 
-        {renderLicenseReferenceCard()}
+        <Reveal>
+          <section className="void-store-hero-grid">
+            <div className="void-store-hero-column">
+              <div className="void-store-counter-card">
+                <span className="void-store-counter-label">Beats</span>
+                <span className="void-store-counter-value">
+                  <NumberTicker value={allBeats.length} />
+                </span>
+              </div>
+              <button type="button" onClick={() => setActiveSection("beats")} className="void-store-hero-button w-full">Browse Beats</button>
+            </div>
+            <div className="void-store-hero-column">
+              <div className="void-store-counter-card">
+                <span className="void-store-counter-label">Drumkits</span>
+                <span className="void-store-counter-value">
+                  <NumberTicker value={storeItems.filter((item) => item.section === "drumkits").length} />
+                </span>
+              </div>
+              <button type="button" onClick={() => setActiveSection("drumkits")} className="void-store-hero-button w-full">Browse Drumkits</button>
+            </div>
+            <div className="void-store-hero-column">
+              <div className="void-store-counter-card">
+                <span className="void-store-counter-label">Loops</span>
+                <span className="void-store-counter-value">
+                  <NumberTicker value={storeItems.filter((item) => item.section === "loops").length} />
+                </span>
+              </div>
+              <button type="button" onClick={() => setActiveSection("loops")} className="void-store-hero-button w-full">Browse Loops</button>
+            </div>
+            <div className="void-store-hero-column void-store-hero-column-wide">
+              <div className="void-store-counter-card">
+                <span className="void-store-counter-label">{COMMUNITY_ART_LABEL}</span>
+                <span className="void-store-counter-value">
+                  <NumberTicker value={storeItems.filter((item) => item.section === "artwork").length} />
+                </span>
+              </div>
+              <button type="button" onClick={() => setActiveSection("artwork")} className="void-store-hero-button w-full">Browse Community Art</button>
+            </div>
+          </section>
+        </Reveal>
 
-        {renderProducerBioSection()}
+        <Reveal>
+          <section className="space-y-4">
+            <div className="text-center">
+              <p className="text-[11px] uppercase tracking-[0.28em] text-[#f87171]">Featured</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Hand Picked Heat</h2>
+            </div>
+            <FeaturedCoverflow
+              beats={featuredHomeBeats.map((beat) => ({
+                id: beat.id,
+                title: beat.title,
+                artist: beat.artist,
+                imageUrl: getBeatImageUrl(beat),
+                bpm: beat.bpm,
+              }))}
+              playingId={currentPreviewBeatId}
+              onPlay={(id) => {
+                const matched = allBeats.find((entry) => entry.id === id);
+                if (matched) {
+                  setSelectedBeatId(matched.id);
+                  void playPreview(matched);
+                }
+              }}
+              onOpen={(id) => {
+                setSelectedBeatId(id);
+                setPendingScrollBeatId(id);
+                setActiveSection("beats");
+              }}
+            />
+          </section>
+        </Reveal>
 
-        {renderEmailSignupSection()}
+        <Reveal>{renderLicenseReferenceCard()}</Reveal>
 
-        {renderStorePreviewGrid("loops", "Featured Loops")}
+        <Reveal>{renderProducerBioSection()}</Reveal>
+
+        <Reveal>{renderEmailSignupSection()}</Reveal>
       </div>
     );
   };
@@ -5476,7 +5965,7 @@ const Index = () => {
                         key={tab.id}
                         type="button"
                         onClick={() => setProfileTab(tab.id)}
-                        className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${profileTab === tab.id ? "bg-[#ff8a63] text-white" : "bg-white/6 text-white/72"}`}
+                        className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left ${profileTab === tab.id ? "bg-[#dc2626] text-white" : "bg-white/6 text-white/72"}`}
                       >
                         <Icon size={16} />
                         <span>{tab.label}</span>
@@ -5494,7 +5983,7 @@ const Index = () => {
                         </div>
                         <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-[#141418] p-4">
                           <label className="group flex cursor-pointer items-center gap-4">
-                            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/10 text-white/60 ring-1 ring-white/8 transition group-hover:ring-[#ff8a63]/55">
+                            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/10 text-white/60 ring-1 ring-white/8 transition group-hover:ring-[#dc2626]/55">
                               {profileForm.profilePhoto ? (
                                 <img src={profileForm.profilePhoto} alt="Profile" className="h-full w-full object-cover" />
                               ) : (
@@ -5575,7 +6064,7 @@ const Index = () => {
                               key={method}
                               type="button"
                               onClick={() => togglePaymentMethod(method)}
-                              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left ${selectedPaymentMethod === method ? "border-[#ff8a63]/60 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
+                              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left ${selectedPaymentMethod === method ? "border-[#dc2626]/60 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
                             >
                               <span className="inline-flex items-center gap-3">
                                 {method === "Cash App" ? <Banknote size={16} /> : <CreditCard size={16} />}
@@ -5656,7 +6145,7 @@ const Index = () => {
                             key={method}
                             type="button"
                             onClick={() => togglePaymentMethod(method)}
-                            className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 ${profileForm.paymentMethods.includes(method) ? "border-[#ff8a63]/50 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
+                            className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 ${profileForm.paymentMethods.includes(method) ? "border-[#dc2626]/50 bg-white/8 text-white" : "border-white/8 bg-[#141418] text-white/72"}`}
                           >
                             <span className="inline-flex items-center gap-3">
                               {method === "Cash App" ? <Banknote size={16} /> : <CreditCard size={16} />}
@@ -5860,7 +6349,7 @@ const Index = () => {
                 ).map((beat, index) => (
                   <div
                     key={`${beat.id}-${index}`}
-                    className={`rounded-2xl border px-3 py-3 transition ${selectedBeat.id === beat.id ? "border-[#ff9f7e]/50 bg-white/8" : "border-white/6 bg-white/[0.03]"}`}
+                    className={`rounded-2xl border px-3 py-3 transition ${selectedBeat.id === beat.id ? "border-[#ef4444]/50 bg-white/8" : "border-white/6 bg-white/[0.03]"}`}
                   >
                     <div className="flex items-center gap-3">
                       <button
@@ -5873,7 +6362,7 @@ const Index = () => {
                             void playStorePreview(beat);
                           }
                         }}
-                        className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#ffb48f] to-[#5d5d5d] text-white"
+                        className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#ef4444] to-[#5d5d5d] text-white"
                       >
                         {beat.imageUrl ? (
                           <img src={beat.imageUrl} alt={beat.title} className="absolute inset-0 h-full w-full object-cover" />
@@ -5922,75 +6411,106 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      <div className="mx-auto min-h-screen max-w-[1520px] px-4 py-5 sm:px-6 lg:px-8">
+      <VoidCommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        beats={allBeats.map((beat) => ({
+          id: beat.id,
+          title: beat.title,
+          artist: beat.artist,
+          bpm: beat.bpm,
+          tags: beatTags[beat.id] ?? beat.tags,
+        }))}
+        storeItems={storeItems.map((item) => ({
+          id: item.id,
+          title: item.title,
+          subtitle: item.subtitle,
+          section: item.section,
+        }))}
+        isSignedIn={Boolean(user)}
+        onNavigate={(section) => setActiveSection(section as SectionId)}
+        onPickBeat={(id) => {
+          setSelectedBeatId(id);
+          setPendingScrollBeatId(id);
+          setActiveSection("beats");
+        }}
+        onPickStoreItem={(_id, section) => setActiveSection(section as SectionId)}
+        onOpenCart={() => setCartOpen(true)}
+        onOpenAuth={() => openAuth("signin")}
+      />
+
+      <div className="min-h-screen w-full">
         <div className="void-store-frame">
-          <header className="void-store-header">
-            <button type="button" onClick={() => setActiveSection("home")} className="text-left">
-              <span className="void-brandword block text-[2.5rem] leading-none text-white">VOID</span>
-              <span className="mt-1 block text-[0.65rem] uppercase tracking-[0.28em] text-white/52">by ejcertified</span>
-            </button>
-
-            <nav className="void-store-nav">
-              {primaryNavLinks.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveSection(item.id)}
-                  className={`void-store-navlink ${activeSection === item.id ? "is-active" : ""}`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-
-            <div className="void-store-searchslot">
-              <label className="void-store-search">
-                <Search size={16} />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search beats, tags, artists"
-                  className="w-full bg-transparent text-[19px] text-white outline-none placeholder:text-white/42"
-                />
-              </label>
-            </div>
-
-            <div className="void-store-toolbar">
-              <button type="button" onClick={() => setActiveSection("terms")} className="void-store-headerlink">
-                <span>TOS</span>
+          <header className={`void-store-header ${headerScrolled ? "is-scrolled" : ""}`}>
+            <div className="void-store-header-inner">
+              <button type="button" onClick={() => setActiveSection("home")} className="text-left">
+                <span className="void-brandword block text-[2.5rem] leading-none text-white">VOID</span>
+                <span className="mt-1 block text-[0.65rem] uppercase tracking-[0.28em] text-white/52">by ejcertified</span>
               </button>
-              <button type="button" onClick={() => setCartOpen(true)} className="void-store-headerlink">
-                <ShoppingBag size={16} />
-                <span>Cart ${cartTotal}</span>
-              </button>
-              {user ? (
-                <button type="button" onClick={() => { setActiveSection("profile"); setProfileTab("edit"); }} className="void-store-headerlink">
-                  <span>{profileForm.displayName || "Profile"}</span>
+
+              <nav className="void-store-nav">
+                {primaryNavLinks.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={`void-store-navlink ${activeSection === item.id ? "is-active" : ""}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+
+              <div className="void-store-searchslot">
+                <label className="void-store-search">
+                  <Search size={16} />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search beats, tags, artists"
+                    className="w-full bg-transparent text-[19px] text-white outline-none placeholder:text-white/42"
+                  />
+                </label>
+              </div>
+
+              <div className="void-store-toolbar">
+                <button type="button" onClick={() => setActiveSection("terms")} className="void-store-headerlink">
+                  <span>TOS</span>
                 </button>
-              ) : (
-                <button type="button" onClick={() => openAuth("signin")} className="void-store-headerlink">Sign in</button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (user) {
-                    setActiveSection("profile");
-                    setProfileTab("edit");
-                  } else {
-                    openAuth("signin");
-                  }
-                }}
-                className="void-store-avatarbutton"
-                aria-label={user ? "Open profile" : "Open sign in"}
-              >
-                {visibleHeaderProfilePhoto ? (
-                  <img src={visibleHeaderProfilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                <button type="button" onClick={() => setCartOpen(true)} className="void-store-headerlink">
+                  <ShoppingBag size={16} />
+                  <span>Cart ${cartTotal}</span>
+                </button>
+                {user ? (
+                  <button type="button" onClick={() => { setActiveSection("profile"); setProfileTab("edit"); }} className="void-store-headerlink">
+                    <span>{profileForm.displayName || "Profile"}</span>
+                  </button>
                 ) : (
-                  <UserCircle2 size={20} />
+                  <button type="button" onClick={() => openAuth("signin")} className="void-store-headerlink">Sign in</button>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (user) {
+                      setActiveSection("profile");
+                      setProfileTab("edit");
+                    } else {
+                      openAuth("signin");
+                    }
+                  }}
+                  className="void-store-avatarbutton"
+                  aria-label={user ? "Open profile" : "Open sign in"}
+                >
+                  {visibleHeaderProfilePhoto ? (
+                    <img src={visibleHeaderProfilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <UserCircle2 size={20} />
+                  )}
+                </button>
+              </div>
             </div>
           </header>
+          <div className={`void-store-header-spacer ${activeSection === "home" ? "is-home-hero" : ""}`} aria-hidden="true" />
 
           {adminUnlocked ? (
             <motion.div
@@ -6060,7 +6580,7 @@ const Index = () => {
             >
               <div className="void-store-player-top">
                 <div className="void-store-player-meta">
-                  <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-[#ffb48f] to-[#5d5d5d]">
+                  <div className="h-12 w-12 overflow-hidden rounded-2xl bg-gradient-to-br from-[#ef4444] to-[#5d5d5d]">
                     {currentPreviewBeatImage ? (
                       <img src={currentPreviewBeatImage} alt={currentPreviewBeat?.title ?? currentPreviewStoreItem?.title ?? selectedBeat.title} className="h-full w-full object-cover" />
                     ) : null}
@@ -6105,7 +6625,7 @@ const Index = () => {
                 </button>
                 <div className="void-store-player-bar">
                   <div
-                    className="h-full rounded-full bg-[#ff8a63]"
+                    className="h-full rounded-full bg-[#dc2626]"
                     style={{ width: `${previewProgress[currentPreviewBeat?.id ?? currentPreviewStoreItem?.id ?? ""] ?? 0}%` }}
                   />
                 </div>
