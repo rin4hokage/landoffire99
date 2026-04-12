@@ -952,24 +952,13 @@ const getExtensionForMimeType = (mimeType: string, fallback: string) => {
 };
 
 const ensureStorefrontAssetsBucket = async () => {
-  if (storefrontAssetsBucketReady) return true;
-
-  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-  if (!listError && buckets?.some((bucket) => bucket.name === STOREFRONT_ASSETS_BUCKET)) {
+  // The storefront-assets bucket is created server-side (via Supabase migration)
+  // with public read access and authenticated upload policies. The frontend
+  // anon key cannot list or create buckets, so we just mark it ready and let
+  // the actual upload call surface any real errors.
+  if (!storefrontAssetsBucketReady) {
     storefrontAssetsBucketReady = true;
-    return true;
   }
-
-  const { error: createError } = await supabase.storage.createBucket(STOREFRONT_ASSETS_BUCKET, {
-    public: true,
-  });
-
-  if (createError && !/already exists/i.test(createError.message ?? "")) {
-    console.error("Failed to create storefront assets bucket.", createError);
-    return false;
-  }
-
-  storefrontAssetsBucketReady = true;
   return true;
 };
 
@@ -2415,7 +2404,12 @@ const Index = () => {
       storefrontConfigFingerprintRef.current = serializeStorefrontSiteConfig(nextConfig);
 
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, serializeStorefrontSiteConfig(nextConfig));
+        try {
+          window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, serializeStorefrontSiteConfig(nextConfig));
+        } catch {
+          // localStorage quota exceeded — clear the stale cache and skip caching
+          try { window.localStorage.removeItem(PUBLISHED_STOREFRONT_STORAGE_KEY); } catch { /* noop */ }
+        }
       }
 
       setStorefrontConfigLoaded(true);
@@ -2785,7 +2779,11 @@ const Index = () => {
       const publishedSnapshot = serializeStorefrontSiteConfig(publishedConfig);
       storefrontConfigFingerprintRef.current = publishedSnapshot;
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, publishedSnapshot);
+        try {
+          window.localStorage.setItem(PUBLISHED_STOREFRONT_STORAGE_KEY, publishedSnapshot);
+        } catch {
+          try { window.localStorage.removeItem(PUBLISHED_STOREFRONT_STORAGE_KEY); } catch { /* noop */ }
+        }
       }
 
       setStorefrontSaveState("saved");
