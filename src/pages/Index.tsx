@@ -3756,6 +3756,9 @@ const Index = () => {
       [section]: createEmptyStoreUploadDraft(),
     }));
     setAdminToolOpen((current) => ({ ...current, [`add-${section}` as AdminToolKey]: false }));
+
+    // Auto-save so the new store item persists to Supabase
+    setTimeout(() => void saveStorefrontChanges(), 0);
   };
 
   const toggleAdminTool = (tool: AdminToolKey) => {
@@ -3846,6 +3849,9 @@ const Index = () => {
       setBeatUploadDraft(createEmptyBeatUploadDraft());
       setAdminToolOpen((current) => ({ ...current, "add-beat": false }));
     }
+
+    // Auto-save so the removal persists to Supabase
+    setTimeout(() => void saveStorefrontChanges(), 0);
   };
 
   const submitBeatUpload = () => {
@@ -3902,6 +3908,12 @@ const Index = () => {
     setBeatUploadDraft(createEmptyBeatUploadDraft());
     setEditingBeatId(null);
     setAdminToolOpen((current) => ({ ...current, "add-beat": false }));
+
+    // Auto-save the storefront config to Supabase so the new/edited beat
+    // persists across refreshes and is visible to all users. The setTimeout
+    // defers the call until after React has flushed the setUploadedBeats
+    // state update so saveStorefrontChanges reads the latest data.
+    setTimeout(() => void saveStorefrontChanges(), 0);
   };
 
   const submitContact = async (event: FormEvent<HTMLFormElement>) => {
