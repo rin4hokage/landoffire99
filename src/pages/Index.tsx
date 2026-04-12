@@ -2469,7 +2469,10 @@ const Index = () => {
 
       const tagRows = tagResult.data ?? [];
       if (tagRows.length > 0) {
-        syncBeatTagsToCache(buildBeatTagsFromRows(tagRows));
+        // Merge: hardcoded defaults as the base, Supabase overrides on top.
+        // This ensures newly-added hardcoded beats keep their tags even if
+        // they haven't been inserted into the storefront_beat_tags table yet.
+        syncBeatTagsToCache({ ...DEFAULT_BEAT_TAGS, ...buildBeatTagsFromRows(tagRows) });
       } else {
         syncBeatTagsToCache(DEFAULT_BEAT_TAGS);
         if (!tagResult.error) {
