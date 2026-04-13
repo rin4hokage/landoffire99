@@ -2280,9 +2280,10 @@ const Index = () => {
           beat.title.toLowerCase().includes(query) ||
           beat.artist.toLowerCase().includes(query) ||
           currentTags.some((tag) => tag.toLowerCase().includes(query));
+        const activeKey = activeTagFilter.trim().toLowerCase().replace(/\s+/g, "");
         const tagMatch =
           activeTagFilter.length === 0 ||
-          currentTags.some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase());
+          currentTags.some((tag) => tag.trim().toLowerCase().replace(/\s+/g, "") === activeKey);
         const bpmMatch = matchesBpmFilter(beat.bpm, bpmFilter);
         return queryMatch && tagMatch && bpmMatch;
       })
@@ -2308,16 +2309,37 @@ const Index = () => {
       });
   }, [activeTagFilter, allBeats, beatSort, beatTags, bpmFilter, searchQuery]);
 
+  // Normalized key for deduping tag variants — collapses whitespace and casing
+  // so "Ken Carson" and "kencarson" map to the same bucket.
+  const normalizeTagKey = (tag: string) => tag.trim().toLowerCase().replace(/\s+/g, "");
+
   const allBeatTags = useMemo(() => {
-    const unique = Array.from(
-      new Set(
-        Object.values(beatTags).flatMap((tags) => tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0)),
-      ),
-    );
+    // Collect every raw tag string present in beatTags
+    const rawTags = new Set<string>();
+    for (const tags of Object.values(beatTags)) {
+      for (const tag of tags) {
+        const trimmed = tag.trim();
+        if (trimmed) rawTags.add(trimmed);
+      }
+    }
+    // Collapse variants by normalized key, preferring the with-space form for display
+    const byKey = new Map<string, string>();
+    for (const tag of rawTags) {
+      const key = normalizeTagKey(tag);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, tag);
+      } else {
+        const existingHasSpace = /\s/.test(existing);
+        const tagHasSpace = /\s/.test(tag);
+        if (tagHasSpace && !existingHasSpace) byKey.set(key, tag);
+      }
+    }
+    const unique = Array.from(byKey.values());
     // Featured tags appear first in a specific order; rest follow alphabetically
-    const priority = ["ken carson", "ejcertified", "evil", "osamason"];
+    const priority = ["kencarson", "ejcertified", "evil", "osamason"];
     const getPriorityIndex = (tag: string) => {
-      const idx = priority.indexOf(tag.toLowerCase());
+      const idx = priority.indexOf(normalizeTagKey(tag));
       return idx === -1 ? priority.length : idx;
     };
     return unique.sort((a, b) => {
@@ -2328,14 +2350,17 @@ const Index = () => {
     });
   }, [beatTags]);
 
-  // Count of beats per tag — shown inside each filter pill
+  // Count of beats per tag (keyed by normalized tag) — shown inside each filter pill.
+  // A beat with both "ken carson" and "kencarson" tags only counts once.
   const beatTagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const beat of allBeats) {
       const tagsForBeat = beatTags[beat.id] ?? beat.tags ?? [];
+      const seen = new Set<string>();
       for (const tag of tagsForBeat) {
-        const key = tag.trim().toLowerCase();
-        if (!key) continue;
+        const key = normalizeTagKey(tag);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
         counts[key] = (counts[key] ?? 0) + 1;
       }
     }
@@ -2343,7 +2368,9 @@ const Index = () => {
   }, [allBeats, beatTags]);
 
   useEffect(() => {
-    if (activeTagFilter && !allBeatTags.some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase())) {
+    if (!activeTagFilter) return;
+    const activeKey = activeTagFilter.trim().toLowerCase().replace(/\s+/g, "");
+    if (!allBeatTags.some((tag) => tag.trim().toLowerCase().replace(/\s+/g, "") === activeKey)) {
       setActiveTagFilter("");
     }
   }, [activeTagFilter, allBeatTags]);
@@ -3277,13 +3304,15 @@ const Index = () => {
           <span className="void-store-tag-count">{allBeats.length}</span>
         </button>
         {allBeatTags.map((tag) => {
-          const count = beatTagCounts[tag.toLowerCase()] ?? 0;
+          const tagKey = normalizeTagKey(tag);
+          const count = beatTagCounts[tagKey] ?? 0;
+          const activeKey = normalizeTagKey(activeTagFilter);
           return (
             <button
               key={tag}
               type="button"
-              onClick={() => setActiveTagFilter((current) => (current.toLowerCase() === tag.toLowerCase() ? "" : tag))}
-              className={`void-store-tag ${activeTagFilter.toLowerCase() === tag.toLowerCase() ? "is-active" : ""}`}
+              onClick={() => setActiveTagFilter((current) => (normalizeTagKey(current) === tagKey ? "" : tag))}
+              className={`void-store-tag ${activeKey === tagKey ? "is-active" : ""}`}
             >
               {tag}
               <span className="void-store-tag-count">{count}</span>
