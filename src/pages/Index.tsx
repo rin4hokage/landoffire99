@@ -660,6 +660,7 @@ const beats: Beat[] = [
     imageUrl: publicFolderAsset("covers", "bron-back.jpg"),
     previewUrl: "/audio/bron-back-144-ejcertified.mp3",
     purchaseUrl: "/audio/bron-back-144-ejcertified.mp3",
+    exclusivePurchaseUrl: "/zips/bron-back-144-ejcertified.zip",
   },
   {
     id: "charge-dis-ho",
@@ -4351,7 +4352,10 @@ const Index = () => {
   };
 
   const renderBeatCard = (beat: Beat, layoutClass = "") => {
-    const selected = licenseSelections[beat.id] ?? "Basic Lease";
+    const rawSelected = licenseSelections[beat.id] ?? "Basic Lease";
+    // Force Basic Lease if the beat has no exclusive zip available
+    const selected: LicenseName =
+      rawSelected === "Exclusive Lease" && !beat.exclusivePurchaseUrl ? "Basic Lease" : rawSelected;
     const price = LICENSES[selected];
     const isPlaying = currentPreviewBeatId === beat.id;
     const secondsRemaining = isPlaying ? Math.max(0, 30 - Math.floor(((previewProgress[beat.id] ?? 0) / 100) * 30)) : null;
@@ -4576,7 +4580,9 @@ const Index = () => {
                 className="void-dashboard-select w-full min-w-0"
               >
                 <option value="Basic Lease">Basic Lease - $20</option>
-                <option value="Exclusive Lease">Exclusive Lease - $100</option>
+                {beat.exclusivePurchaseUrl ? (
+                  <option value="Exclusive Lease">Exclusive Lease - $100</option>
+                ) : null}
               </select>
               <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
                 <span className="text-sm font-semibold text-white">${price}</span>
@@ -4753,7 +4759,9 @@ const Index = () => {
   );
 
   const renderFavoriteBeatRow = (beat: Beat) => {
-    const selected = licenseSelections[beat.id] ?? "Basic Lease";
+    const rawSelected = licenseSelections[beat.id] ?? "Basic Lease";
+    const selected: LicenseName =
+      rawSelected === "Exclusive Lease" && !beat.exclusivePurchaseUrl ? "Basic Lease" : rawSelected;
     const price = LICENSES[selected];
     const isPlaying = currentPreviewBeatId === beat.id;
     const beatImage = getBeatImageUrl(beat);
@@ -4813,7 +4821,9 @@ const Index = () => {
                 className="void-dashboard-select min-w-[240px] max-w-[280px]"
               >
                 <option value="Basic Lease">Basic Lease - $20</option>
-                <option value="Exclusive Lease">Exclusive Lease - $100</option>
+                {beat.exclusivePurchaseUrl ? (
+                  <option value="Exclusive Lease">Exclusive Lease - $100</option>
+                ) : null}
               </select>
               <button
                 type="button"
