@@ -315,9 +315,9 @@ const BPM_FILTERS: { id: BpmFilterOption; label: string }[] = [
   { id: "160-plus", label: "160+" },
 ];
 const BEAT_SORT_OPTIONS: { id: BeatSortOption; label: string }[] = [
+  { id: "highest-rated", label: "Highest Rated" },
   { id: "newest", label: "Newest" },
   { id: "most-sold", label: "Most Sold" },
-  { id: "highest-rated", label: "Highest Rated" },
   { id: "bpm", label: "BPM" },
 ];
 const EMPTY_BEAT_MARKET_STATS: BeatMarketStats = {
@@ -2081,7 +2081,7 @@ const Index = () => {
   const [selectedBeatId, setSelectedBeatId] = useState(beats[0].id);
   const [uploadedBeats, setUploadedBeats] = useState<Beat[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [beatSort, setBeatSort] = useState<BeatSortOption>("newest");
+  const [beatSort, setBeatSort] = useState<BeatSortOption>("highest-rated");
   const [bpmFilter, setBpmFilter] = useState<BpmFilterOption>("all");
   const [currentPreviewBeatId, setCurrentPreviewBeatId] = useState<string | null>(null);
   const [previewProgress, setPreviewProgress] = useState<Record<string, number>>({});
@@ -2291,7 +2291,15 @@ const Index = () => {
           return getBeatMarketStats(right.id).soldCount - getBeatMarketStats(left.id).soldCount;
         }
         if (beatSort === "highest-rated") {
-          return getBeatAverageRating(right.id) - getBeatAverageRating(left.id);
+          const ratingDiff = getBeatAverageRating(right.id) - getBeatAverageRating(left.id);
+          if (ratingDiff !== 0) return ratingDiff;
+          // Tiebreaker: curated "first row" of featured picks until real ratings come in
+          const featuredOrder = ["quemoni", "jjjj", "goin-broke", "bacardi", "blood"];
+          const leftFeatured = featuredOrder.indexOf(left.id);
+          const rightFeatured = featuredOrder.indexOf(right.id);
+          const leftRank = leftFeatured === -1 ? featuredOrder.length : leftFeatured;
+          const rightRank = rightFeatured === -1 ? featuredOrder.length : rightFeatured;
+          return leftRank - rightRank;
         }
         if (beatSort === "bpm") {
           return right.bpm - left.bpm;
@@ -2300,15 +2308,39 @@ const Index = () => {
       });
   }, [activeTagFilter, allBeats, beatSort, beatTags, bpmFilter, searchQuery]);
 
-  const allBeatTags = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          Object.values(beatTags).flatMap((tags) => tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0)),
-        ),
+  const allBeatTags = useMemo(() => {
+    const unique = Array.from(
+      new Set(
+        Object.values(beatTags).flatMap((tags) => tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0)),
       ),
-    [beatTags],
-  );
+    );
+    // Featured tags appear first in a specific order; rest follow alphabetically
+    const priority = ["ken carson", "ejcertified", "evil", "osamason"];
+    const getPriorityIndex = (tag: string) => {
+      const idx = priority.indexOf(tag.toLowerCase());
+      return idx === -1 ? priority.length : idx;
+    };
+    return unique.sort((a, b) => {
+      const pa = getPriorityIndex(a);
+      const pb = getPriorityIndex(b);
+      if (pa !== pb) return pa - pb;
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+  }, [beatTags]);
+
+  // Count of beats per tag — shown inside each filter pill
+  const beatTagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const beat of allBeats) {
+      const tagsForBeat = beatTags[beat.id] ?? beat.tags ?? [];
+      for (const tag of tagsForBeat) {
+        const key = tag.trim().toLowerCase();
+        if (!key) continue;
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [allBeats, beatTags]);
 
   useEffect(() => {
     if (activeTagFilter && !allBeatTags.some((tag) => tag.toLowerCase() === activeTagFilter.toLowerCase())) {
@@ -3242,17 +3274,22 @@ const Index = () => {
           className={`void-store-tag ${activeTagFilter.length === 0 ? "is-active" : ""}`}
         >
           All
+          <span className="void-store-tag-count">{allBeats.length}</span>
         </button>
-        {allBeatTags.map((tag) => (
-          <button
-            key={tag}
-            type="button"
-            onClick={() => setActiveTagFilter((current) => (current.toLowerCase() === tag.toLowerCase() ? "" : tag))}
-            className={`void-store-tag ${activeTagFilter.toLowerCase() === tag.toLowerCase() ? "is-active" : ""}`}
-          >
-            {tag}
-          </button>
-        ))}
+        {allBeatTags.map((tag) => {
+          const count = beatTagCounts[tag.toLowerCase()] ?? 0;
+          return (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setActiveTagFilter((current) => (current.toLowerCase() === tag.toLowerCase() ? "" : tag))}
+              className={`void-store-tag ${activeTagFilter.toLowerCase() === tag.toLowerCase() ? "is-active" : ""}`}
+            >
+              {tag}
+              <span className="void-store-tag-count">{count}</span>
+            </button>
+          );
+        })}
       </div>
     ) : null;
 
